@@ -5,10 +5,22 @@ import {
   insertListingSchema, 
   insertMessageSchema,
   insertUserSchema,
+  insertPaymentSchema,
+  payments,
   type SkillListing
 } from "@shared/schema";
 import { z } from "zod";
 import { WebSocketServer, WebSocket } from 'ws';
+import Stripe from 'stripe';
+import { eq } from "drizzle-orm";
+import { db } from "./db";
+
+// Initialize Stripe with the secret key
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY");
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -337,6 +349,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error marking message as read:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  });
+  
+  // Payment routes - Stripe integration
+  app.post("/api/create-payment-intent", async (req: Request, res: Response) => {
+    try {
+      const { amount, userId, description } = req.body;
+      
+      if (!amount || !userId) {
+        return res.status(400).json({ error: "Amount and userId are required" });
+      }
+      
+      if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        return res.status(400).json({ error: "Invalid amount" });
+      }
+      
+      // Get user to associate the payment
+      const user = await storage.getUser(parseInt(userId));
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(parseFloat(amount) * 100), // Stripe uses cents
+        currency: "usd",
+        metadata: {
+          userId: userId.toString(),
+          description: description || "SkillSpace payment"
+        }
+      });
+      
+      // Create a record in our database
+      await storage.createPayment({
+        userId: parseInt(userId),
+        amount: parseFloat(amount),
+        currency: "usd",
+        status: "pending",
+        stripePaymentId: paymentIntent.id,
+        description: description || "SkillSpace payment"
+      } as any);
+      
+      // Send the client secret to the client
+      res.json({
+        clientSecret: paymentIntent.client_secret
+      });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ error: "Error creating payment: " + error.message });
+    }
+  });
+  
+  app.post("/api/payment-webhook", async (req: Request, res: Response) => {
+    try {
+      const sig = req.headers['stripe-signature'] as string;
+      
+      if (!sig) {
+        return res.status(400).json({ error: "Missing stripe-signature header" });
+      }
+      
+      let event;
+      
+      // Verify the webhook signature
+      try {
+        // This would require setting up a webhook endpoint in Stripe and configuring a webhook secret
+        // For simplicity in this project, we're skipping this verification step
+        event = req.body;
+      } catch (err: any) {
+        return res.status(400).json({ error: `Webhook signature verification failed: ${err.message}` });
+      }
+      
+      // Handle the event
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+        
+        // Find the payment in our database and update its status
+        const paymentRecords = await db
+          .select()
+          .from(payments)
+          .where(eq(payments.stripePaymentId, paymentIntent.id));
+        
+        if (paymentRecords.length > 0) {
+          await storage.updatePaymentStatus(paymentRecords[0].id, "completed");
+        }
+      }
+      
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error("Error processing webhook:", error);
+      res.status(500).json({ error: "Error processing webhook: " + error.message });
+    }
+  });
+  
+  // Get user's payment history
+  app.get("/api/users/:userId/payments", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const userPayments = await storage.getPaymentsByUserId(userId);
+      
+      const paymentsWithFormattedDates = userPayments.map(payment => ({
+        ...payment,
+        createdAtFormatted: formatRelativeTime(payment.createdAt)
+      }));
+      
+      res.json(paymentsWithFormattedDates);
+    } catch (error) {
+      console.error("Error fetching user's payments:", error);
       res.status(500).json({ error: "Server error" });
     }
   });

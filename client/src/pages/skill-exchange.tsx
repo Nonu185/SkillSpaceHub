@@ -127,7 +127,6 @@ export default function SkillExchange() {
   // Video call state
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [isCallInitiator, setIsCallInitiator] = useState(false);
-  const [peerSignalData, setPeerSignalData] = useState<string>("");
   
   // Handle adding skills to offering/seeking
   const [currentSkill, setCurrentSkill] = useState("");
@@ -702,12 +701,12 @@ export default function SkillExchange() {
           {showVideoCall ? (
             <div className="mt-4">
               <VideoCall
+                userId={currentUser.id}
+                remoteUserId={selectedListing?.userId || 0}
                 isInitiator={isCallInitiator}
-                peerData={peerSignalData}
-                onPeerData={(data) => setPeerSignalData(data)}
-                onClose={() => setShowVideoCall(false)}
+                onEnd={() => setShowVideoCall(false)}
                 userName={currentUser.name}
-                peerName={selectedListing?.user?.name || "Peer"}
+                remoteUserName={selectedListing?.user?.name || "Peer"}
               />
             </div>
           ) : (

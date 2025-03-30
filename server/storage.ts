@@ -1,8 +1,11 @@
 import { 
   users, type User, type InsertUser,
   skillListings, type SkillListing, type InsertListing,
-  skillMessages, type SkillMessage, type InsertMessage
+  skillMessages, type SkillMessage, type InsertMessage,
+  payments, type Payment, type InsertPayment
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, or, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -10,6 +13,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserProfile(id: number, userProfile: Partial<User>): Promise<User | undefined>;
+  updateUserStripeInfo(id: number, stripeInfo: { stripeCustomerId: string, stripeSubscriptionId?: string }): Promise<User | undefined>;
   
   // Skill listing operations
   createListing(listing: InsertListing): Promise<SkillListing>;
@@ -24,215 +28,188 @@ export interface IStorage {
   getMessagesByListingId(listingId: number): Promise<SkillMessage[]>;
   getMessagesBetweenUsers(user1Id: number, user2Id: number): Promise<SkillMessage[]>;
   markMessageAsRead(id: number): Promise<SkillMessage | undefined>;
+  
+  // Payment operations
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPaymentsByUserId(userId: number): Promise<Payment[]>;
+  getPaymentById(id: number): Promise<Payment | undefined>;
+  updatePaymentStatus(id: number, status: string): Promise<Payment | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private skillListings: Map<number, SkillListing>;
-  private skillMessages: Map<number, SkillMessage>;
-  private userCurrentId: number;
-  private listingCurrentId: number;
-  private messageCurrentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.skillListings = new Map();
-    this.skillMessages = new Map();
-    
-    this.userCurrentId = 1;
-    this.listingCurrentId = 1;
-    this.messageCurrentId = 1;
-    
-    // Add some initial data for testing
-    this.populateInitialData();
-  }
-
-  private populateInitialData() {
-    // Add demo users
-    const demoUsers: User[] = [
-      {
-        id: this.userCurrentId++,
-        username: "rahul_sharma",
-        password: "password123",
-        name: "Rahul Sharma",
-        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-        bio: "Data scientist with expertise in Python and machine learning",
-        rating: 48, // 4.8 out of 5
-        reviewCount: 12
-      },
-      {
-        id: this.userCurrentId++,
-        username: "priya_patel",
-        password: "password123",
-        name: "Priya Patel",
-        avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-        bio: "Digital marketing professional and content creator",
-        rating: 49, // 4.9 out of 5
-        reviewCount: 21
-      },
-      {
-        id: this.userCurrentId++,
-        username: "vikram_singh",
-        password: "password123",
-        name: "Vikram Singh",
-        avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-        bio: "Mobile app developer specializing in React Native",
-        rating: 47, // 4.7 out of 5
-        reviewCount: 9
-      }
-    ];
-    
-    demoUsers.forEach(user => this.users.set(user.id, user));
-    
-    // Add demo listings
-    const demoListings: SkillListing[] = [
-      {
-        id: this.listingCurrentId++,
-        userId: 1,
-        offering: ["Python Programming", "Data Analysis"],
-        seeking: ["UI/UX Design", "Graphic Design"],
-        description: "I'm a data scientist with 3 years of experience in Python and data analysis. Looking to exchange my skills for design expertise to improve my portfolio projects.",
-        timeCommitment: "2-3 hours/week",
-        experienceLevel: "Intermediate",
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
-      },
-      {
-        id: this.listingCurrentId++,
-        userId: 2,
-        offering: ["Digital Marketing", "Content Writing"],
-        seeking: ["Web Development", "SEO Optimization"],
-        description: "Marketing professional offering content creation and digital marketing strategy in exchange for help building my personal website and improving its SEO.",
-        timeCommitment: "4-5 hours/week",
-        experienceLevel: "Advanced",
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
-      },
-      {
-        id: this.listingCurrentId++,
-        userId: 3,
-        offering: ["Mobile App Development", "React Native"],
-        seeking: ["UI/UX Design", "Product Management"],
-        description: "I can develop mobile apps using React Native. Looking for someone who can help with UI design and product roadmap planning for my upcoming project.",
-        timeCommitment: "5-6 hours/week",
-        experienceLevel: "Advanced",
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 1 week ago
-      }
-    ];
-    
-    demoListings.forEach(listing => this.skillListings.set(listing.id, listing));
-  }
-
+export class DatabaseStorage implements IStorage {
   // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userCurrentId++;
-    const user: User = { 
-      ...insertUser, 
-      id,
-      name: insertUser.name || null,
-      avatar: insertUser.avatar || null,
-      bio: insertUser.bio || null,
+    // Set default values for new users
+    const userWithDefaults = {
+      ...insertUser,
       rating: 50, // Default 5.0 rating
       reviewCount: 0
     };
-    this.users.set(id, user);
+    
+    const [user] = await db.insert(users).values(userWithDefaults).returning();
     return user;
   }
   
   async updateUserProfile(id: number, userProfile: Partial<User>): Promise<User | undefined> {
-    const user = await this.getUser(id);
-    if (!user) return undefined;
+    const [updatedUser] = await db
+      .update(users)
+      .set(userProfile)
+      .where(eq(users.id, id))
+      .returning();
     
-    const updatedUser = { ...user, ...userProfile };
-    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async updateUserStripeInfo(
+    id: number, 
+    stripeInfo: { stripeCustomerId: string, stripeSubscriptionId?: string }
+  ): Promise<User | undefined> {
+    const updateData: Partial<User> = {
+      stripeCustomerId: stripeInfo.stripeCustomerId
+    };
+    
+    if (stripeInfo.stripeSubscriptionId) {
+      updateData.stripeSubscriptionId = stripeInfo.stripeSubscriptionId;
+    }
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, id))
+      .returning();
+    
     return updatedUser;
   }
   
   // Skill listing methods
   async createListing(listing: InsertListing): Promise<SkillListing> {
-    const id = this.listingCurrentId++;
-    const newListing: SkillListing = {
-      ...listing,
-      id,
-      createdAt: new Date()
-    };
-    this.skillListings.set(id, newListing);
+    const [newListing] = await db.insert(skillListings).values(listing).returning();
     return newListing;
   }
   
   async getListings(): Promise<SkillListing[]> {
-    return Array.from(this.skillListings.values()).sort((a, b) => 
-      b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    return await db.select().from(skillListings).orderBy(desc(skillListings.createdAt));
   }
   
   async getListingById(id: number): Promise<SkillListing | undefined> {
-    return this.skillListings.get(id);
+    const [listing] = await db.select().from(skillListings).where(eq(skillListings.id, id));
+    return listing;
   }
   
   async getListingsByUserId(userId: number): Promise<SkillListing[]> {
-    return Array.from(this.skillListings.values())
-      .filter(listing => listing.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db
+      .select()
+      .from(skillListings)
+      .where(eq(skillListings.userId, userId))
+      .orderBy(desc(skillListings.createdAt));
   }
   
   async updateListing(id: number, listingUpdate: Partial<SkillListing>): Promise<SkillListing | undefined> {
-    const listing = await this.getListingById(id);
-    if (!listing) return undefined;
+    const [updatedListing] = await db
+      .update(skillListings)
+      .set(listingUpdate)
+      .where(eq(skillListings.id, id))
+      .returning();
     
-    const updatedListing = { ...listing, ...listingUpdate };
-    this.skillListings.set(id, updatedListing);
     return updatedListing;
   }
   
   async deleteListing(id: number): Promise<boolean> {
-    return this.skillListings.delete(id);
+    const result = await db
+      .delete(skillListings)
+      .where(eq(skillListings.id, id))
+      .returning({ id: skillListings.id });
+    
+    return result.length > 0;
   }
   
   // Message methods
   async createMessage(message: InsertMessage): Promise<SkillMessage> {
-    const id = this.messageCurrentId++;
-    const newMessage: SkillMessage = {
+    const messageWithDefaults = {
       ...message,
-      id,
-      createdAt: new Date(),
       read: false
     };
-    this.skillMessages.set(id, newMessage);
+    
+    const [newMessage] = await db.insert(skillMessages).values(messageWithDefaults).returning();
     return newMessage;
   }
   
   async getMessagesByListingId(listingId: number): Promise<SkillMessage[]> {
-    return Array.from(this.skillMessages.values())
-      .filter(message => message.listingId === listingId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return await db
+      .select()
+      .from(skillMessages)
+      .where(eq(skillMessages.listingId, listingId))
+      .orderBy(skillMessages.createdAt);
   }
   
   async getMessagesBetweenUsers(user1Id: number, user2Id: number): Promise<SkillMessage[]> {
-    return Array.from(this.skillMessages.values())
-      .filter(message => 
-        (message.senderId === user1Id && message.receiverId === user2Id) ||
-        (message.senderId === user2Id && message.receiverId === user1Id)
+    return await db
+      .select()
+      .from(skillMessages)
+      .where(
+        or(
+          and(
+            eq(skillMessages.senderId, user1Id),
+            eq(skillMessages.receiverId, user2Id)
+          ),
+          and(
+            eq(skillMessages.senderId, user2Id),
+            eq(skillMessages.receiverId, user1Id)
+          )
+        )
       )
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      .orderBy(skillMessages.createdAt);
   }
   
   async markMessageAsRead(id: number): Promise<SkillMessage | undefined> {
-    const message = this.skillMessages.get(id);
-    if (!message) return undefined;
+    const [updatedMessage] = await db
+      .update(skillMessages)
+      .set({ read: true })
+      .where(eq(skillMessages.id, id))
+      .returning();
     
-    const updatedMessage = { ...message, read: true };
-    this.skillMessages.set(id, updatedMessage);
     return updatedMessage;
+  }
+  
+  // Payment methods
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+  
+  async getPaymentsByUserId(userId: number): Promise<Payment[]> {
+    return await db
+      .select()
+      .from(payments)
+      .where(eq(payments.userId, userId))
+      .orderBy(desc(payments.createdAt));
+  }
+  
+  async getPaymentById(id: number): Promise<Payment | undefined> {
+    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
+    return payment;
+  }
+  
+  async updatePaymentStatus(id: number, status: string): Promise<Payment | undefined> {
+    const [updatedPayment] = await db
+      .update(payments)
+      .set({ status })
+      .where(eq(payments.id, id))
+      .returning();
+    
+    return updatedPayment;
   }
 }
 
-export const storage = new MemStorage();
+// Switch from MemStorage to DatabaseStorage
+export const storage = new DatabaseStorage();

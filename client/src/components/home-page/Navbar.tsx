@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import Logo from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Menu, Search, User, Zap } from "lucide-react";
+import { ChevronDown, Menu, Search, User, Zap, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   DropdownMenu,
@@ -179,6 +179,21 @@ export default function Navbar() {
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              className="hidden sm:block"
+            >
+              <Button 
+                variant="ghost" 
+                className={`${scrolled ? "text-white hover:bg-slate-800" : "text-gray-700 hover:bg-gray-100"}`}
+                onClick={() => window.location.href = '/premium'}
+              >
+                <Crown className="h-4 w-4 mr-2 text-yellow-400" />
+                Premium
+              </Button>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <Button 
                 variant="ghost" 
@@ -262,6 +277,14 @@ export default function Navbar() {
                         </div>
                       ))}
                       <div className="px-4 pt-6 flex flex-col space-y-3">
+                        <Button 
+                          variant="outline" 
+                          className="w-full border-gray-700 hover:bg-gray-800 border-yellow-500/30"
+                          onClick={() => window.location.href = '/premium'}
+                        >
+                          <Crown className="h-4 w-4 mr-2 text-yellow-400" />
+                          Premium
+                        </Button>
                         <Button 
                           variant="outline" 
                           className="w-full border-gray-700 hover:bg-gray-800"

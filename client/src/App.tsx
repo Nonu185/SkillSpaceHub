@@ -16,6 +16,7 @@ const Mentors = lazy(() => import("@/pages/mentors"));
 const StudySpaces = lazy(() => import("@/pages/study-spaces"));
 const SkillExchange = lazy(() => import("@/pages/skill-exchange"));
 const About = lazy(() => import("@/pages/about"));
+const Premium = lazy(() => import("@/pages/premium"));
 
 // Loading spinner component
 const LoadingSpinner = () => (
@@ -49,6 +50,7 @@ function Router() {
         <Route path="/study-spaces" component={StudySpaces}/>
         <Route path="/skill-exchange" component={SkillExchange}/>
         <Route path="/about" component={About}/>
+        <Route path="/premium" component={Premium}/>
         <Route component={NotFound} />
       </Switch>
     </Suspense>
