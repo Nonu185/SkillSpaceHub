@@ -34,15 +34,14 @@ const navItems = [
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // No longer needed with Link components
-  // Using Link from wouter for navigation instead of window.location
-
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex-shrink-0 flex items-center">
-            <Logo />
+            <Link href="/">
+              <Logo />
+            </Link>
           </div>
 
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
