@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Repeat, MessageSquare, Loader2 } from "lucide-react";
+import { Search, Plus, Repeat, MessageSquare, Loader2, Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import {
@@ -33,9 +34,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-
-// Message dialog imports
 import {
   Sheet,
   SheetContent,
@@ -43,6 +41,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import VideoCall from "@/components/ui/video-call";
 
 interface User {
   id: number;
@@ -119,6 +118,11 @@ export default function SkillExchange() {
   const [messageSheetOpen, setMessageSheetOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<SkillListing | null>(null);
   const [messageText, setMessageText] = useState("");
+  
+  // Video call state
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [isCallInitiator, setIsCallInitiator] = useState(false);
+  const [peerSignalData, setPeerSignalData] = useState<string>("");
   
   // Handle adding skills to offering/seeking
   const [currentSkill, setCurrentSkill] = useState("");
@@ -690,35 +694,63 @@ export default function SkillExchange() {
             </SheetDescription>
           </SheetHeader>
           
-          <div className="mt-6 flex flex-col space-y-4 h-[calc(100vh-200px)]">
-            <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-gray-50 rounded-md">
-              <div className="bg-white p-3 rounded-lg shadow-sm max-w-[80%]">
-                <p className="text-sm">
-                  Hi! I'm interested in your skill exchange listing. Let's discuss how we can help each other.
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Just now</p>
+          {showVideoCall ? (
+            <div className="mt-4">
+              <VideoCall
+                isInitiator={isCallInitiator}
+                peerData={peerSignalData}
+                onPeerData={(data) => setPeerSignalData(data)}
+                onClose={() => setShowVideoCall(false)}
+                userName={currentUser.name}
+                peerName={selectedListing?.user?.name || "Peer"}
+              />
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col space-y-4 h-[calc(100vh-200px)]">
+              <div className="flex justify-end mb-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs" 
+                  onClick={() => {
+                    setIsCallInitiator(true);
+                    setShowVideoCall(true);
+                  }}
+                >
+                  <Video className="h-3 w-3 mr-1" />
+                  Start Video Call
+                </Button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-gray-50 rounded-md">
+                <div className="bg-white p-3 rounded-lg shadow-sm max-w-[80%]">
+                  <p className="text-sm">
+                    Hi! I'm interested in your skill exchange listing. Let's discuss how we can help each other.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Just now</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Textarea 
+                  placeholder="Type your message..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleSendMessage}
+                  disabled={sendMessageMutation.isPending || !messageText.trim()}
+                >
+                  {sendMessageMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Send"
+                  )}
+                </Button>
               </div>
             </div>
-            
-            <div className="flex gap-2">
-              <Textarea 
-                placeholder="Type your message..."
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleSendMessage}
-                disabled={sendMessageMutation.isPending || !messageText.trim()}
-              >
-                {sendMessageMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Send"
-                )}
-              </Button>
-            </div>
-          </div>
+          )}
         </SheetContent>
       </Sheet>
       
