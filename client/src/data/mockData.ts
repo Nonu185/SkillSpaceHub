@@ -43,28 +43,46 @@ export const courses = [
 
 export const experts = [
   {
-    name: "John Smith",
-    title: "Data Science Expert",
-    bio: "Former Lead Data Scientist at Google with 10+ years of experience in AI and machine learning",
-    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80"
+    name: "Sudhiksha Krishnan",
+    title: "AI & Machine Learning Expert",
+    bio: "Experienced in AI solutions with a focus on machine learning applications and data analytics",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=688&q=80",
+    linkedIn: "https://www.linkedin.com/in/sudhiksha-krishnan-717489295/"
   },
   {
-    name: "Sarah Johnson",
-    title: "UX/UI Design Lead",
-    bio: "Award-winning designer with experience at top agencies and a passion for teaching design principles",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=688&q=80"
+    name: "Aditya V",
+    title: "Full-Stack Developer",
+    bio: "Seasoned developer with expertise in web technologies and cloud infrastructure",
+    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    linkedIn: "https://www.linkedin.com/in/aditya-v-36111a112/"
   },
   {
-    name: "Michael Chen",
-    title: "Software Engineering",
-    bio: "Full-stack developer who has built apps used by millions and enjoys mentoring new programmers",
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80"
+    name: "Swasthik R",
+    title: "Software Engineering Expert",
+    bio: "Specialized in software architecture and developing scalable applications",
+    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    linkedIn: "https://www.linkedin.com/in/rswasthik/"
   },
   {
-    name: "Aisha Patel",
-    title: "Entrepreneurship",
-    bio: "Serial entrepreneur who has founded three successful startups and specializes in business strategy",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=761&q=80"
+    name: "Rida Fathima",
+    title: "UI/UX Design Specialist",
+    bio: "Creating intuitive and engaging user interfaces with a focus on user experience",
+    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=761&q=80",
+    linkedIn: "https://www.linkedin.com/in/rida-fathima-a12589244/"
+  },
+  {
+    name: "Gowtham B S",
+    title: "Product Management & Strategy",
+    bio: "Experienced in product development lifecycle and market strategy implementation",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    linkedIn: "https://www.linkedin.com/in/gowtham-b-s-sandbox/"
+  },
+  {
+    name: "Hemanth Gowda",
+    title: "Data Science & Analytics",
+    bio: "Specializing in data-driven solutions and advanced analytics for business intelligence",
+    image: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    linkedIn: "https://www.linkedin.com/in/hemanth-gowda-31a7532a7/"
   }
 ];
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search } from "lucide-react";
+import { Search, Linkedin } from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import { experts as allMentors } from "@/data/mockData";
@@ -21,8 +21,23 @@ import {
   TabsTrigger 
 } from "@/components/ui/tabs";
 
+// Define the mentor type
+interface Mentor {
+  id: number;
+  name: string;
+  title: string;
+  bio: string;
+  image: string;
+  linkedIn?: string;
+  specializations: string[];
+  availability: string;
+  rating: string;
+  reviews: number;
+  hourlyRate: string;
+}
+
 // Extend the mock data with more mentors and add more fields
-const extendedMentors = allMentors.concat(allMentors).concat(allMentors).map((mentor, index) => ({
+const extendedMentors: Mentor[] = allMentors.map((mentor, index) => ({
   ...mentor,
   id: index + 1,
   specializations: ["Machine Learning", "Python", "Data Visualization"].slice(0, (index % 3) + 1),
@@ -186,7 +201,18 @@ export default function Mentors() {
                   </div>
                   
                   <div className="mt-4 flex gap-2">
-                    <Button className="flex-1">View Profile</Button>
+                    {mentor.linkedIn && (
+                      <Button 
+                        className="flex-1 flex items-center justify-center gap-2" 
+                        onClick={() => window.open(mentor.linkedIn, '_blank')}
+                      >
+                        <Linkedin className="h-4 w-4" />
+                        LinkedIn
+                      </Button>
+                    )}
+                    {!mentor.linkedIn && (
+                      <Button className="flex-1">View Profile</Button>
+                    )}
                     <Button variant="outline" className="flex-1" disabled={mentor.availability !== "Available"}>
                       Book Session
                     </Button>

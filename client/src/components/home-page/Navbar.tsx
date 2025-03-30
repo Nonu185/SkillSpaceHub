@@ -39,9 +39,9 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex-shrink-0 flex items-center">
-            <Link href="/">
+            <div onClick={() => window.location.href = '/'} className="cursor-pointer">
               <Logo />
-            </Link>
+            </div>
           </div>
 
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
@@ -56,35 +56,43 @@ export default function Navbar() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
                     {item.dropdown.map((dropdownItem, dropdownIndex) => (
-                      <DropdownMenuItem key={dropdownIndex} asChild>
-                        <Link href={dropdownItem.href} className="w-full">
+                      <Link key={dropdownIndex} href={dropdownItem.href}>
+                        <DropdownMenuItem className="w-full cursor-pointer">
                           {dropdownItem.label}
-                        </Link>
-                      </DropdownMenuItem>
+                        </DropdownMenuItem>
+                      </Link>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Link key={index} href={item.href || "#"}>
-                  <Button variant="ghost" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary">
-                    {item.label}
-                  </Button>
-                </Link>
+                <Button 
+                  key={index}
+                  variant="ghost" 
+                  className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary"
+                  onClick={() => window.location.href = item.href || "#"}
+                >
+                  {item.label}
+                </Button>
               )
             ))}
           </div>
 
           <div className="flex items-center">
-            <Link href="/login">
-              <Button variant="ghost" className="text-primary">
-                Log in
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button variant="default" className="ml-3">
-                Register
-              </Button>
-            </Link>
+            <Button 
+              variant="ghost" 
+              className="text-primary"
+              onClick={() => window.location.href = '/login'}
+            >
+              Log in
+            </Button>
+            
+            <Button 
+              variant="default" 
+              className="ml-3"
+              onClick={() => window.location.href = '/register'}
+            >
+              Register
+            </Button>
 
             <div className="ml-4 md:hidden">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -103,30 +111,40 @@ export default function Navbar() {
                               <div className="font-medium">{item.label}</div>
                               <div className="pl-4 space-y-2">
                                 {item.dropdown.map((subItem, subI) => (
-                                  <Link key={subI} href={subItem.href} className="block text-sm hover:text-primary">
+                                  <div 
+                                    key={subI} 
+                                    className="block text-sm hover:text-primary cursor-pointer"
+                                    onClick={() => window.location.href = subItem.href}
+                                  >
                                     {subItem.label}
-                                  </Link>
+                                  </div>
                                 ))}
                               </div>
                             </div>
                           ) : (
-                            <Link href={item.href || "#"} className="block font-medium hover:text-primary">
+                            <div 
+                              className="block font-medium hover:text-primary cursor-pointer"
+                              onClick={() => window.location.href = item.href || "#"}
+                            >
                               {item.label}
-                            </Link>
+                            </div>
                           )}
                         </div>
                       ))}
                       <div className="px-4 pt-4 flex flex-col space-y-2">
-                        <Link href="/login" className="w-full">
-                          <Button variant="outline" className="w-full">
-                            Log in
-                          </Button>
-                        </Link>
-                        <Link href="/register" className="w-full">
-                          <Button className="w-full">
-                            Register
-                          </Button>
-                        </Link>
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={() => window.location.href = '/login'}
+                        >
+                          Log in
+                        </Button>
+                        <Button 
+                          className="w-full"
+                          onClick={() => window.location.href = '/register'}
+                        >
+                          Register
+                        </Button>
                       </div>
                     </div>
                   </div>
