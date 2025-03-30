@@ -132,13 +132,11 @@ export default function SkillExchange() {
   // Create listing mutation
   const createListingMutation = useMutation({
     mutationFn: async (listingData: Omit<SkillListing, 'id' | 'createdAt'>) => {
-      return apiRequest('/api/skill-listings', {
-        method: 'POST',
-        body: JSON.stringify(listingData),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      return apiRequest(
+        'POST',
+        '/api/skill-listings',
+        listingData
+      );
     },
     onSuccess: () => {
       // Show success message
@@ -171,13 +169,11 @@ export default function SkillExchange() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: Omit<Message, 'id' | 'createdAt' | 'read' | 'createdAtFormatted'>) => {
-      return apiRequest('/api/skill-messages', {
-        method: 'POST',
-        body: JSON.stringify(messageData),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      return apiRequest(
+        'POST',
+        '/api/skill-messages',
+        messageData
+      );
     },
     onSuccess: () => {
       // Show success message
