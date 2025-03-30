@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Linkedin } from "lucide-react";
+import { Search, Linkedin, Upload, X, CheckCircle } from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import { experts as allMentors } from "@/data/mockData";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -89,10 +101,23 @@ const specializations = [
 ];
 
 export default function Mentors() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialization, setSelectedSpecialization] = useState("All Specializations");
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("relevance");
+  
+  // Mentor application form state
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [expertise, setExpertise] = useState("");
+  const [experience, setExperience] = useState("");
+  const [bio, setBio] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [linkedInProfile, setLinkedInProfile] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [applicationSuccess, setApplicationSuccess] = useState(false);
 
   // Filter mentors based on search, specialization, and availability
   const filteredMentors = extendedMentors.filter((mentor) => {
@@ -186,7 +211,10 @@ export default function Mentors() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMentors.map((mentor) => (
-              <Card key={mentor.id} className="overflow-hidden hover:shadow-md transition">
+              <Card 
+                key={mentor.id} 
+                className="overflow-hidden transition-all duration-300 hover:shadow-lg group relative"
+              >
                 <div className="flex justify-between items-center px-5 pt-5">
                   <Badge 
                     variant={mentor.availability === "Available" ? "outline" : "secondary"}
@@ -204,7 +232,7 @@ export default function Mentors() {
                 <CardContent className="p-5">
                   <div className="flex items-start">
                     <div className="w-1/3">
-                      <div className="rounded-full overflow-hidden h-24 w-24 mb-2 border-2 border-primary/20 shadow-md">
+                      <div className="rounded-full overflow-hidden h-24 w-24 mb-2 border-2 border-primary/20 shadow-md group-hover:border-primary group-hover:scale-105 transition-all duration-300">
                         <img 
                           src={mentor.image} 
                           alt={mentor.name} 
@@ -213,7 +241,7 @@ export default function Mentors() {
                       </div>
                     </div>
                     <div className="w-2/3">
-                      <h3 className="text-lg font-semibold text-gray-900">{mentor.name}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors">{mentor.name}</h3>
                       <p className="text-sm text-primary">{mentor.title}</p>
                       <p className="text-sm font-semibold text-gray-900 mt-2">{mentor.hourlyRate}/hour</p>
                     </div>
@@ -223,7 +251,11 @@ export default function Mentors() {
                   
                   <div className="mt-4 flex flex-wrap gap-2">
                     {mentor.specializations.map((specialization, index) => (
-                      <Badge key={index} variant="outline" className="bg-blue-50 text-primary border-blue-200">
+                      <Badge 
+                        key={index} 
+                        variant="outline" 
+                        className="bg-blue-50 text-primary border-blue-200 group-hover:bg-blue-100 transition-colors"
+                      >
                         {specialization}
                       </Badge>
                     ))}
@@ -232,7 +264,7 @@ export default function Mentors() {
                   <div className="mt-4 flex gap-2">
                     {mentor.linkedIn && (
                       <Button 
-                        className="flex-1 flex items-center justify-center gap-2" 
+                        className="flex-1 flex items-center justify-center gap-2 group-hover:bg-primary/90 transition-colors" 
                         onClick={() => window.open(mentor.linkedIn, '_blank')}
                       >
                         <Linkedin className="h-4 w-4" />
@@ -240,9 +272,13 @@ export default function Mentors() {
                       </Button>
                     )}
                     {!mentor.linkedIn && (
-                      <Button className="flex-1">View Profile</Button>
+                      <Button className="flex-1 group-hover:bg-primary/90 transition-colors">View Profile</Button>
                     )}
-                    <Button variant="outline" className="flex-1" disabled={mentor.availability !== "Available"}>
+                    <Button 
+                      variant="outline" 
+                      className={`flex-1 transition-all ${mentor.availability === "Available" ? "group-hover:border-primary group-hover:text-primary" : ""}`} 
+                      disabled={mentor.availability !== "Available"}
+                    >
                       Book Session
                     </Button>
                   </div>
@@ -267,7 +303,248 @@ export default function Mentors() {
             Share your expertise, help others grow, and earn additional income. 
             Join our community of expert mentors.
           </p>
-          <Button size="lg">Apply to be a Mentor</Button>
+          <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg">Apply to be a Mentor</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              {applicationSuccess ? (
+                <div className="py-6 flex flex-col items-center text-center">
+                  <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Submitted</h2>
+                  <p className="text-gray-600 mb-6">
+                    Thank you for applying to be a mentor on SkillSpace! We'll review your application and get back to you within 2-3 business days.
+                  </p>
+                  <Button onClick={() => {
+                    setApplicationSuccess(false);
+                    setApplyDialogOpen(false);
+                    
+                    // Reset form
+                    setFullName("");
+                    setEmail("");
+                    setExpertise("");
+                    setExperience("");
+                    setBio("");
+                    setResumeFile(null);
+                    setLinkedInProfile("");
+                  }}>
+                    Close
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Apply to be a Mentor</DialogTitle>
+                    <DialogDescription>
+                      Fill out the form below to apply. Our team will review your application and contact you.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName">Full Name</Label>
+                        <Input
+                          id="fullName"
+                          placeholder="Your name"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="Your email address"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="expertise">Areas of Expertise</Label>
+                      <Input
+                        id="expertise"
+                        placeholder="e.g., Machine Learning, Web Development, UX Design"
+                        value={expertise}
+                        onChange={(e) => setExpertise(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="experience">Years of Experience</Label>
+                      <Select value={experience} onValueChange={setExperience}>
+                        <SelectTrigger id="experience">
+                          <SelectValue placeholder="Select years of experience" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1-2">1-2 years</SelectItem>
+                          <SelectItem value="3-5">3-5 years</SelectItem>
+                          <SelectItem value="5-10">5-10 years</SelectItem>
+                          <SelectItem value="10+">10+ years</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="bio">Professional Bio</Label>
+                      <Textarea
+                        id="bio"
+                        placeholder="Tell us about yourself, your experience, and why you want to be a mentor"
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="resume">Resume/CV</Label>
+                      <div className="border border-gray-200 rounded-md p-3 relative">
+                        <Input
+                          id="resume"
+                          type="file"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setResumeFile(e.target.files[0]);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full flex items-center justify-center"
+                          onClick={() => {
+                            document.getElementById("resume")?.click();
+                          }}
+                        >
+                          {resumeFile ? (
+                            <div className="flex items-center w-full justify-between">
+                              <span className="text-sm overflow-hidden overflow-ellipsis whitespace-nowrap max-w-[250px]">
+                                {resumeFile.name}
+                              </span>
+                              <X 
+                                className="h-4 w-4 cursor-pointer" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setResumeFile(null);
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Resume/CV
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedin">LinkedIn Profile URL (Optional)</Label>
+                      <Input
+                        id="linkedin"
+                        placeholder="https://linkedin.com/in/yourprofile"
+                        value={linkedInProfile}
+                        onChange={(e) => setLinkedInProfile(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button 
+                      type="button" 
+                      onClick={() => {
+                        // Validate form
+                        if (!fullName.trim()) {
+                          toast({
+                            title: "Missing information",
+                            description: "Please enter your full name.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (!email.trim() || !email.includes('@')) {
+                          toast({
+                            title: "Invalid email",
+                            description: "Please enter a valid email address.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (!expertise.trim()) {
+                          toast({
+                            title: "Missing information",
+                            description: "Please specify your areas of expertise.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (!experience) {
+                          toast({
+                            title: "Missing information",
+                            description: "Please select your years of experience.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (!bio.trim()) {
+                          toast({
+                            title: "Missing information",
+                            description: "Please provide a professional bio.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        if (!resumeFile) {
+                          toast({
+                            title: "Missing information",
+                            description: "Please upload your resume/CV.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        
+                        // Submit form
+                        setSubmitting(true);
+                        
+                        // Simulate API call
+                        setTimeout(() => {
+                          setSubmitting(false);
+                          setApplicationSuccess(true);
+                          toast({
+                            title: "Application Submitted",
+                            description: "We've received your application. Our team will review it shortly.",
+                          });
+                        }, 1500);
+                      }}
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Submitting...
+                        </>
+                      ) : (
+                        "Submit Application"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       
