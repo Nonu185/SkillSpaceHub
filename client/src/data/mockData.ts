@@ -1,3 +1,11 @@
+// Import mentor photos
+import sudhishaKrishnaImg from "@assets/sudhishakrishna.jpeg";
+import adityaVImg from "@assets/adityasir.jpeg";
+import swasthikRImg from "@assets/swashtik.jpeg";
+import ridaFathimaImg from "@assets/rida.jpeg";
+import gowthamBSImg from "@assets/gowtham.jpeg";
+import hemanthGowdaImg from "@assets/hemanth.jpeg";
+
 export const courses = [
   {
     title: "Data Science & Machine Learning Bootcamp",
@@ -46,42 +54,42 @@ export const experts = [
     name: "Sudhiksha Krishnan",
     title: "AI & Machine Learning Expert",
     bio: "Experienced in AI solutions with a focus on machine learning applications and data analytics",
-    image: "https://images.unsplash.com/photo-1614644147798-f8c0fc9da7f6?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80",
+    image: sudhishaKrishnaImg,
     linkedIn: "https://www.linkedin.com/in/sudhiksha-krishnan-717489295/"
   },
   {
     name: "Aditya V",
     title: "Full-Stack Developer",
     bio: "Seasoned developer with expertise in web technologies and cloud infrastructure",
-    image: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    image: adityaVImg,
     linkedIn: "https://www.linkedin.com/in/aditya-v-36111a112/"
   },
   {
     name: "Swasthik R",
     title: "Software Engineering Expert",
     bio: "Specialized in software architecture and developing scalable applications",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    image: swasthikRImg,
     linkedIn: "https://www.linkedin.com/in/rswasthik/"
   },
   {
     name: "Rida Fathima",
     title: "UI/UX Design Specialist",
     bio: "Creating intuitive and engaging user interfaces with a focus on user experience",
-    image: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    image: ridaFathimaImg,
     linkedIn: "https://www.linkedin.com/in/rida-fathima-a12589244/"
   },
   {
     name: "Gowtham B S",
     title: "Product Management & Strategy",
     bio: "Experienced in product development lifecycle and market strategy implementation",
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    image: gowthamBSImg,
     linkedIn: "https://www.linkedin.com/in/gowtham-b-s-sandbox/"
   },
   {
     name: "Hemanth Gowda",
     title: "Data Science & Analytics",
     bio: "Specializing in data-driven solutions and advanced analytics for business intelligence",
-    image: "https://images.unsplash.com/photo-1531384441138-2736e62e0919?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80",
+    image: hemanthGowdaImg,
     linkedIn: "https://www.linkedin.com/in/hemanth-gowda-31a7532a7/"
   }
 ];
