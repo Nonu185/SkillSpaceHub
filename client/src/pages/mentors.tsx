@@ -36,27 +36,56 @@ interface Mentor {
   hourlyRate: string;
 }
 
+// Define mentor specializations based on their roles with type safety
+type MentorName = "Sudhiksha Krishnan" | "Aditya V" | "Swasthik R" | 
+                 "Rida Fathima" | "Gowtham B S" | "Hemanth Gowda";
+
+const mentorSpecializations: Record<MentorName, string[]> = {
+  "Sudhiksha Krishnan": ["Machine Learning", "AI Research", "Data Science"],
+  "Aditya V": ["Full-Stack Development", "JavaScript", "Cloud Services"],
+  "Swasthik R": ["Software Architecture", "Backend Development", "System Design"],
+  "Rida Fathima": ["UI/UX Design", "Product Design", "User Research"],
+  "Gowtham B S": ["Product Management", "Business Strategy", "Market Analysis"],
+  "Hemanth Gowda": ["Data Analytics", "Business Intelligence", "Statistical Analysis"]
+};
+
+// Default specializations for any mentor not in our predefined list
+const defaultSpecializations = ["Machine Learning", "Python", "Data Visualization"];
+
 // Extend the mock data with more mentors and add more fields
 const extendedMentors: Mentor[] = allMentors.map((mentor, index) => ({
   ...mentor,
   id: index + 1,
-  specializations: ["Machine Learning", "Python", "Data Visualization"].slice(0, (index % 3) + 1),
+  specializations: Object.keys(mentorSpecializations).includes(mentor.name) 
+    ? mentorSpecializations[mentor.name as MentorName] 
+    : defaultSpecializations.slice(0, (index % 3) + 1),
   availability: index % 2 === 0 ? "Available" : "Fully Booked",
   rating: (4 + (index % 10) / 10).toFixed(1),
-  reviews: 10 + (index * 3),
-  hourlyRate: "₹" + (1500 + (index * 100)),
+  reviews: 10 + (index * 5),
+  hourlyRate: "₹" + (1500 + (index * 200)),
 }));
 
+// Create a complete list of all specializations for filtering
 const specializations = [
   "All Specializations",
   "Machine Learning",
+  "AI Research",
   "Data Science",
-  "Web Development",
-  "Mobile Development",
-  "UX/UI Design",
+  "Full-Stack Development",
+  "JavaScript",
+  "Cloud Services",
+  "Software Architecture",
+  "Backend Development", 
+  "System Design",
+  "UI/UX Design",
+  "Product Design",
+  "User Research",
   "Product Management",
-  "Digital Marketing",
-  "Entrepreneurship",
+  "Business Strategy",
+  "Market Analysis",
+  "Data Analytics",
+  "Business Intelligence",
+  "Statistical Analysis"
 ];
 
 export default function Mentors() {
@@ -175,7 +204,7 @@ export default function Mentors() {
                 <CardContent className="p-5">
                   <div className="flex items-start">
                     <div className="w-1/3">
-                      <div className="rounded-full overflow-hidden h-20 w-20 mb-2">
+                      <div className="rounded-full overflow-hidden h-24 w-24 mb-2 border-2 border-primary/20 shadow-md">
                         <img 
                           src={mentor.image} 
                           alt={mentor.name} 
