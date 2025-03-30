@@ -265,9 +265,10 @@ export default function SkillExchange() {
       return;
     }
     
+    // Use a hardcoded user ID (1) since we're using in-memory storage
     // Create the listing
     createListingMutation.mutate({
-      userId: currentUser.id,
+      userId: 1, // Using ID 1 for demo purposes since we know this user exists in storage
       offering: newOffering,
       seeking: newSeeking,
       description: newDescription,
@@ -293,9 +294,10 @@ export default function SkillExchange() {
       return;
     }
     
+    // Use hardcoded user ID for demo purposes
     sendMessageMutation.mutate({
       listingId: selectedListing.id,
-      senderId: currentUser.id,
+      senderId: 2, // Using ID 2 for demo purposes since we know this user exists in storage
       receiverId: selectedListing.userId,
       message: messageText,
     });

@@ -52,7 +52,10 @@ export default function ExpertMentors() {
                       <div className="rounded-full h-28 w-28 overflow-hidden border-4 border-white shadow-md">
                         <img 
                           src={expert.image} 
-                          alt={expert.name} 
+                          alt={expert.name}
+                          loading="lazy"
+                          width="112"
+                          height="112" 
                           className="h-full w-full object-cover"
                         />
                       </div>

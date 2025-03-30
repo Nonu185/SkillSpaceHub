@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Flash } from "@/assets/icons";
+import homepageImage from "@assets/homepage.webp";
 
 export default function Hero() {
   return (
@@ -41,8 +42,11 @@ export default function Hero() {
                   <div className="relative mx-auto w-full rounded-lg shadow-lg lg:max-w-md">
                     <img 
                       className="w-full rounded-lg"
-                      src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-1.2.1&auto=format&fit=crop&w=1172&q=80" 
-                      alt="Student working on laptop"
+                      src={homepageImage}
+                      loading="eager"
+                      width="768"
+                      height="512"
+                      alt="SkillSpace learning platform interface"
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="bg-white/90 p-4 rounded-lg shadow-md mx-4">
