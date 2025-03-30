@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Search, Plus, Repeat, MessageSquare } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, Plus, Repeat, MessageSquare, Loader2 } from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import {
@@ -31,100 +32,51 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
-// Mock skill exchange listings
-const skillExchangeListings = [
-  {
-    id: 1,
-    user: {
-      name: "Rahul Sharma",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.8,
-      reviews: 12
-    },
-    offering: ["Python Programming", "Data Analysis"],
-    seeking: ["UI/UX Design", "Graphic Design"],
-    description: "I'm a data scientist with 3 years of experience in Python and data analysis. Looking to exchange my skills for design expertise to improve my portfolio projects.",
-    timeCommitment: "2-3 hours/week",
-    experienceLevel: "Intermediate",
-    createdAt: "2 days ago"
-  },
-  {
-    id: 2,
-    user: {
-      name: "Priya Patel",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.9,
-      reviews: 21
-    },
-    offering: ["Digital Marketing", "Content Writing"],
-    seeking: ["Web Development", "SEO Optimization"],
-    description: "Marketing professional offering content creation and digital marketing strategy in exchange for help building my personal website and improving its SEO.",
-    timeCommitment: "4-5 hours/week",
-    experienceLevel: "Advanced",
-    createdAt: "5 days ago"
-  },
-  {
-    id: 3,
-    user: {
-      name: "Vikram Singh",
-      avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.7,
-      reviews: 9
-    },
-    offering: ["Mobile App Development", "React Native"],
-    seeking: ["UI/UX Design", "Product Management"],
-    description: "I can develop mobile apps using React Native. Looking for someone who can help with UI design and product roadmap planning for my upcoming project.",
-    timeCommitment: "5-6 hours/week",
-    experienceLevel: "Advanced",
-    createdAt: "1 week ago"
-  },
-  {
-    id: 4,
-    user: {
-      name: "Neha Gupta",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.6,
-      reviews: 7
-    },
-    offering: ["Graphic Design", "Brand Identity"],
-    seeking: ["Social Media Marketing", "Content Strategy"],
-    description: "Graphic designer with expertise in brand identity creation. Looking to exchange my design skills for help with social media marketing for my design business.",
-    timeCommitment: "3-4 hours/week",
-    experienceLevel: "Intermediate",
-    createdAt: "3 days ago"
-  },
-  {
-    id: 5,
-    user: {
-      name: "Arjun Mehta",
-      avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.9,
-      reviews: 18
-    },
-    offering: ["Financial Analysis", "Investment Planning"],
-    seeking: ["Website Development", "Video Editing"],
-    description: "Finance professional offering financial analysis and investment planning advice. Looking for help with personal website development and creating educational videos.",
-    timeCommitment: "2-3 hours/week",
-    experienceLevel: "Advanced",
-    createdAt: "1 day ago"
-  },
-  {
-    id: 6,
-    user: {
-      name: "Ananya Desai",
-      avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
-      rating: 4.8,
-      reviews: 15
-    },
-    offering: ["English Language Teaching", "Content Editing"],
-    seeking: ["Photography", "Basic Coding"],
-    description: "English language teacher offering language tutoring and content editing. Looking to learn photography and basic coding for a personal project.",
-    timeCommitment: "4-5 hours/week",
-    experienceLevel: "Beginner (seeking), Advanced (offering)",
-    createdAt: "6 days ago"
-  }
-];
+// Message dialog imports
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+
+interface User {
+  id: number;
+  username: string;
+  name: string | null;
+  avatar: string | null;
+  bio: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
+interface SkillListing {
+  id: number;
+  userId: number;
+  offering: string[];
+  seeking: string[];
+  description: string;
+  timeCommitment: string;
+  experienceLevel: string;
+  createdAt: string;
+  createdAtFormatted?: string;
+  user?: User;
+}
+
+interface Message {
+  id: number;
+  listingId: number;
+  senderId: number;
+  receiverId: number;
+  message: string;
+  createdAt: string;
+  createdAtFormatted?: string;
+  read: boolean;
+}
 
 const skillCategories = [
   "All Categories",
@@ -140,10 +92,21 @@ const skillCategories = [
 ];
 
 export default function SkillExchange() {
+  const { toast } = useToast();
+  
+  // State variables for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedTab, setSelectedTab] = useState("offerings");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  
+  // Current user (normally would come from auth context)
+  // For demo, we'll simulate being logged in as Neha
+  const currentUser = {
+    id: 4,
+    name: "Neha Gupta",
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
+  };
 
   // New listing form state
   const [newOffering, setNewOffering] = useState<string[]>([]);
@@ -152,9 +115,92 @@ export default function SkillExchange() {
   const [newTimeCommitment, setNewTimeCommitment] = useState("");
   const [newExperienceLevel, setNewExperienceLevel] = useState("");
 
+  // Message state
+  const [messageSheetOpen, setMessageSheetOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<SkillListing | null>(null);
+  const [messageText, setMessageText] = useState("");
+  
   // Handle adding skills to offering/seeking
   const [currentSkill, setCurrentSkill] = useState("");
+
+  // Fetch all skill listings
+  const { data: listings, isLoading, isError } = useQuery<SkillListing[]>({
+    queryKey: ['/api/skill-listings'],
+    refetchOnWindowFocus: false,
+  });
   
+  // Create listing mutation
+  const createListingMutation = useMutation({
+    mutationFn: async (listingData: Omit<SkillListing, 'id' | 'createdAt'>) => {
+      return apiRequest('/api/skill-listings', {
+        method: 'POST',
+        body: JSON.stringify(listingData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+    onSuccess: () => {
+      // Show success message
+      toast({
+        title: "Listing created!",
+        description: "Your skill exchange listing has been posted successfully.",
+      });
+      
+      // Reset form and close dialog
+      setNewOffering([]);
+      setNewSeeking([]);
+      setNewDescription("");
+      setNewTimeCommitment("");
+      setNewExperienceLevel("");
+      setCreateDialogOpen(false);
+      
+      // Refetch listings to show the new one
+      queryClient.invalidateQueries({ queryKey: ['/api/skill-listings'] });
+    },
+    onError: (error) => {
+      console.error('Error creating listing:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem creating your listing. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (messageData: Omit<Message, 'id' | 'createdAt' | 'read' | 'createdAtFormatted'>) => {
+      return apiRequest('/api/skill-messages', {
+        method: 'POST',
+        body: JSON.stringify(messageData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    },
+    onSuccess: () => {
+      // Show success message
+      toast({
+        title: "Message sent!",
+        description: "Your message has been sent successfully.",
+      });
+      
+      // Reset form and close sheet
+      setMessageText("");
+      setMessageSheetOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem sending your message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Add skill to offering or seeking
   const handleAddSkill = (type: 'offering' | 'seeking') => {
     if (!currentSkill.trim()) return;
     
@@ -166,6 +212,7 @@ export default function SkillExchange() {
     setCurrentSkill("");
   };
 
+  // Remove skill from offering or seeking
   const handleRemoveSkill = (type: 'offering' | 'seeking', index: number) => {
     if (type === 'offering') {
       setNewOffering(newOffering.filter((_, i) => i !== index));
@@ -174,32 +221,98 @@ export default function SkillExchange() {
     }
   };
 
+  // Create a new listing
   const handleCreateListing = () => {
-    // In a real app, this would send data to the backend
-    console.log("Creating new listing:", {
+    // Validate form
+    if (newOffering.length === 0) {
+      toast({
+        title: "Missing information",
+        description: "Please add at least one skill you're offering.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newSeeking.length === 0) {
+      toast({
+        title: "Missing information",
+        description: "Please add at least one skill you're seeking.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newDescription) {
+      toast({
+        title: "Missing information",
+        description: "Please provide a description of your exchange.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newTimeCommitment) {
+      toast({
+        title: "Missing information",
+        description: "Please select a time commitment.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newExperienceLevel) {
+      toast({
+        title: "Missing information",
+        description: "Please select your experience level.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create the listing
+    createListingMutation.mutate({
+      userId: currentUser.id,
       offering: newOffering,
       seeking: newSeeking,
       description: newDescription,
       timeCommitment: newTimeCommitment,
-      experienceLevel: newExperienceLevel
+      experienceLevel: newExperienceLevel,
     });
+  };
+  
+  // Open message sheet for a listing
+  const handleOpenMessageSheet = (listing: SkillListing) => {
+    setSelectedListing(listing);
+    setMessageSheetOpen(true);
+  };
+  
+  // Send a message to the listing owner
+  const handleSendMessage = () => {
+    if (!selectedListing || !messageText.trim()) {
+      toast({
+        title: "Cannot send message",
+        description: "Please enter a message before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // Reset form
-    setNewOffering([]);
-    setNewSeeking([]);
-    setNewDescription("");
-    setNewTimeCommitment("");
-    setNewExperienceLevel("");
-    setCreateDialogOpen(false);
+    sendMessageMutation.mutate({
+      listingId: selectedListing.id,
+      senderId: currentUser.id,
+      receiverId: selectedListing.userId,
+      message: messageText,
+    });
   };
 
   // Filter listings based on search and category
-  const filteredListings = skillExchangeListings.filter((listing) => {
+  const filteredListings = listings ? listings.filter((listing) => {
     // Filter by search term
-    const matchesSearch = listing.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        listing.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        listing.offering.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        listing.seeking.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = 
+      listing.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (listing.user?.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      listing.offering.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      listing.seeking.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Filter by category
     const matchesCategory = selectedCategory === "All Categories" || (
@@ -209,7 +322,7 @@ export default function SkillExchange() {
     );
     
     return matchesSearch && matchesCategory;
-  });
+  }) : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -260,6 +373,12 @@ export default function SkillExchange() {
                         placeholder="Add a skill you can teach"
                         value={currentSkill}
                         onChange={(e) => setCurrentSkill(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSkill('offering');
+                          }
+                        }}
                       />
                       <Button type="button" onClick={() => handleAddSkill('offering')}>Add</Button>
                     </div>
@@ -285,6 +404,12 @@ export default function SkillExchange() {
                         placeholder="Add a skill you want to learn"
                         value={currentSkill}
                         onChange={(e) => setCurrentSkill(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSkill('seeking');
+                          }
+                        }}
                       />
                       <Button type="button" onClick={() => handleAddSkill('seeking')}>Add</Button>
                     </div>
@@ -347,7 +472,16 @@ export default function SkillExchange() {
                 </div>
                 
                 <DialogFooter>
-                  <Button type="button" onClick={handleCreateListing}>Create Listing</Button>
+                  <Button 
+                    type="button" 
+                    onClick={handleCreateListing}
+                    disabled={createListingMutation.isPending}
+                  >
+                    {createListingMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Create Listing
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -432,136 +566,163 @@ export default function SkillExchange() {
                 </p>
               </div>
               
-              <div className="space-y-6">
-                {filteredListings.map((listing) => (
-                  <Card key={listing.id} className="overflow-hidden hover:shadow-md transition">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row gap-6">
-                        <div className="md:w-1/4">
-                          <div className="flex flex-col items-center text-center">
-                            <Avatar className="h-20 w-20">
-                              <AvatarImage src={listing.user.avatar} alt={listing.user.name} />
-                              <AvatarFallback>{listing.user.name[0]}</AvatarFallback>
-                            </Avatar>
-                            <h3 className="mt-2 font-semibold">{listing.user.name}</h3>
-                            <div className="flex items-center mt-1">
-                              <span className="text-amber-500 font-semibold">{listing.user.rating}</span>
-                              <span className="text-sm text-gray-500 ml-1">({listing.user.reviews})</span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">Posted {listing.createdAt}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="md:w-3/4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <h4 className="font-semibold flex items-center text-gray-900">
-                                <span className="bg-green-100 p-1 rounded text-green-600 mr-2">
-                                  <Plus className="h-4 w-4" />
-                                </span>
-                                Offering
-                              </h4>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {listing.offering.map((skill, index) => (
-                                  <Badge key={index} variant="outline" className="bg-green-50 border-green-200 text-green-700">
-                                    {skill}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <h4 className="font-semibold flex items-center text-gray-900">
-                                <span className="bg-blue-100 p-1 rounded text-blue-600 mr-2">
-                                  <Repeat className="h-4 w-4" />
-                                </span>
-                                Seeking
-                              </h4>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {listing.seeking.map((skill, index) => (
-                                  <Badge key={index} variant="outline" className="bg-blue-50 border-blue-200 text-primary">
-                                    {skill}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <p className="text-gray-600 mb-4">{listing.description}</p>
-                          
-                          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <span className="font-medium">Time Commitment:</span>
-                              <span className="ml-1">{listing.timeCommitment}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span className="font-medium">Experience Level:</span>
-                              <span className="ml-1">{listing.experienceLevel}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="bg-gray-50 px-6 py-3 flex justify-end">
-                      <Button>Contact to Exchange</Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-                
-                {filteredListings.length === 0 && (
-                  <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                    <h3 className="text-xl font-semibold text-gray-900">No listings found</h3>
-                    <p className="text-gray-600 mt-2">Try adjusting your search or filters</p>
-                    <Button variant="outline" className="mt-4" onClick={() => setCreateDialogOpen(true)}>
-                      Create a New Listing
-                    </Button>
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+              ) : isError ? (
+                <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                  <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <MessageSquare className="h-8 w-8 text-red-500" />
                   </div>
-                )}
-              </div>
+                  <h3 className="text-lg font-medium mb-1">Error loading listings</h3>
+                  <p className="text-gray-500 max-w-md mx-auto">
+                    There was a problem loading the skill exchange listings. Please try refreshing the page.
+                  </p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/skill-listings'] })}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {filteredListings.map((listing) => (
+                    <Card key={listing.id} className="overflow-hidden hover:shadow-md transition">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row gap-6">
+                          <div className="md:w-1/4">
+                            <div className="flex flex-col items-center text-center">
+                              <Avatar className="h-20 w-20">
+                                <AvatarImage src={listing.user?.avatar || undefined} alt={listing.user?.name || 'User'} />
+                                <AvatarFallback>{listing.user?.name?.[0] || 'U'}</AvatarFallback>
+                              </Avatar>
+                              <h3 className="mt-2 font-semibold">{listing.user?.name || 'Anonymous User'}</h3>
+                              <div className="flex items-center mt-1">
+                                <span className="text-yellow-500">★</span>
+                                <span className="ml-1 text-sm text-gray-600">
+                                  {(listing.user?.rating || 0) / 10} ({listing.user?.reviewCount || 0} reviews)
+                                </span>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-3"
+                                onClick={() => handleOpenMessageSheet(listing)}
+                                disabled={listing.userId === currentUser.id}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                {listing.userId === currentUser.id ? 'Your Listing' : 'Message'}
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="md:w-3/4">
+                            <div className="space-y-4">
+                              <div>
+                                <h3 className="font-medium text-lg">{listing.description}</h3>
+                                <p className="text-sm text-gray-500 mt-1">Posted {listing.createdAtFormatted}</p>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-500">Offering</h4>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {listing.offering.map((skill, index) => (
+                                      <Badge key={index} variant="secondary">{skill}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-500">Seeking</h4>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {listing.seeking.map((skill, index) => (
+                                      <Badge key={index} variant="outline">{skill}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
+                                <div>
+                                  <span className="font-medium">Time Commitment:</span> {listing.timeCommitment}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Experience Level:</span> {listing.experienceLevel}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {filteredListings.length === 0 && (
+                    <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <Search className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">No listings found</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        We couldn't find any skill exchange listings matching your filters. Try adjusting your search or create your own listing.
+                      </p>
+                      <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create a Listing
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
       
-      <div className="bg-gray-100 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Skill Exchange Success Stories</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto mb-8">
-            Our community members have been successfully exchanging skills and growing together.
-            Here's what they have to say about their experience.
-          </p>
+      {/* Message sheet */}
+      <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Message {selectedListing?.user?.name}</SheetTitle>
+            <SheetDescription>
+              Discuss potential skill exchange details with {selectedListing?.user?.name}.
+            </SheetDescription>
+          </SheetHeader>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                quote: "I taught digital marketing to a web developer who helped me build my portfolio website. The exchange was extremely valuable for both of us!",
-                name: "Meera Joshi",
-                role: "Digital Marketer"
-              },
-              {
-                quote: "Through skill exchange, I found a data scientist who taught me Python while I helped him improve his presentation skills. Win-win!",
-                name: "Rohan Kapoor",
-                role: "Public Speaking Coach"
-              },
-              {
-                quote: "I exchanged my UX design skills for financial literacy coaching. It's amazing how complementary our skills were!",
-                name: "Aditya Sharma",
-                role: "UX Designer"
-              }
-            ].map((testimonial, index) => (
-              <Card key={index} className="text-left">
-                <CardContent className="pt-6">
-                  <p className="italic text-gray-600">{testimonial.quote}</p>
-                  <div className="mt-4">
-                    <p className="font-semibold">{testimonial.name}</p>
-                    <p className="text-sm text-gray-500">{testimonial.role}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="mt-6 flex flex-col space-y-4 h-[calc(100vh-200px)]">
+            <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-gray-50 rounded-md">
+              <div className="bg-white p-3 rounded-lg shadow-sm max-w-[80%]">
+                <p className="text-sm">
+                  Hi! I'm interested in your skill exchange listing. Let's discuss how we can help each other.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Just now</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Textarea 
+                placeholder="Type your message..."
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSendMessage}
+                disabled={sendMessageMutation.isPending || !messageText.trim()}
+              >
+                {sendMessageMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Send"
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
       
       <Footer />
     </div>
