@@ -8,6 +8,7 @@ import {
   type SkillListing
 } from "@shared/schema";
 import { z } from "zod";
+import { WebSocketServer, WebSocket } from 'ws';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -341,6 +342,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Create WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Connected clients
+  const clients = new Map<string, { ws: WebSocket, userId?: number }>();
+  
+  wss.on('connection', (ws) => {
+    const clientId = Math.random().toString(36).substring(2, 15);
+    clients.set(clientId, { ws });
+    
+    console.log(`WebSocket client connected: ${clientId}`);
+    
+    ws.on('message', async (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle user identification
+        if (data.type === 'identify') {
+          const userId = parseInt(data.userId);
+          if (!isNaN(userId)) {
+            const user = await storage.getUser(userId);
+            if (user) {
+              clients.set(clientId, { ws, userId });
+              ws.send(JSON.stringify({ 
+                type: 'identify_success', 
+                message: 'User identified successfully'
+              }));
+              console.log(`User ${userId} identified with client ${clientId}`);
+            }
+          }
+        }
+        
+        // Handle new messages
+        if (data.type === 'new_message' && data.message) {
+          const parsedMessage = insertMessageSchema.safeParse(data.message);
+          
+          if (parsedMessage.success) {
+            const messageCopy = { ...parsedMessage.data };
+            const newMessage = await storage.createMessage(messageCopy);
+            
+            // Broadcast to sender and receiver
+            clients.forEach((client) => {
+              if (client.userId === newMessage.senderId || client.userId === newMessage.receiverId) {
+                if (client.ws.readyState === WebSocket.OPEN) {
+                  client.ws.send(JSON.stringify({
+                    type: 'new_message',
+                    message: {
+                      ...newMessage,
+                      createdAtFormatted: formatRelativeTime(newMessage.createdAt)
+                    }
+                  }));
+                }
+              }
+            });
+          }
+        }
+        
+        // Handle when someone is typing
+        if (data.type === 'typing') {
+          const { senderId, receiverId } = data;
+          clients.forEach((client) => {
+            if (client.userId === receiverId && client.ws.readyState === WebSocket.OPEN) {
+              client.ws.send(JSON.stringify({
+                type: 'user_typing',
+                senderId
+              }));
+            }
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      clients.delete(clientId);
+      console.log(`WebSocket client disconnected: ${clientId}`);
+    });
+    
+    // Send initial connection confirmation
+    ws.send(JSON.stringify({ 
+      type: 'connected', 
+      message: 'Connected to SkillSpace WebSocket Server'
+    }));
+  });
+  
   return httpServer;
 }
 

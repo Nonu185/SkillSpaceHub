@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Repeat, MessageSquare, Loader2, Video, VideoOff, Mic, MicOff, PhoneOff } from "lucide-react";
+import { 
+  Search, Plus, Repeat, MessageSquare, Loader2, Video, 
+  VideoOff, Mic, MicOff, PhoneOff, Send, Calendar, Award
+} from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import {
@@ -41,7 +44,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import VideoCall from "@/components/ui/video-call";
+import { VideoCall } from "@/components/ui/video-call";
+import { motion } from "framer-motion";
+import useWebSocket from "@/hooks/useWebSocket";
 
 interface User {
   id: number;

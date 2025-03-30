@@ -1,41 +1,53 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Webcam from 'react-webcam';
-import SimplePeer from 'simple-peer';
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Video, Mic, MicOff, VideoOff, PhoneOff, Phone } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
+import { Card } from "@/components/ui/card";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Monitor, Share2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import useWebSocket from "@/hooks/useWebSocket";
+import Webcam from "react-webcam";
+import SimplePeer from "simple-peer";
 
 interface VideoCallProps {
+  userId: number;
+  remoteUserId: number;
   isInitiator?: boolean;
-  peerData?: string;
-  onPeerData?: (data: string) => void;
-  onClose: () => void;
-  userName: string;
-  peerName: string;
+  onEnd?: () => void;
+  userName?: string;
+  remoteUserName?: string;
 }
 
-const VideoCall: React.FC<VideoCallProps> = ({
+export function VideoCall({
+  userId,
+  remoteUserId,
   isInitiator = false,
-  peerData,
-  onPeerData,
-  onClose,
-  userName,
-  peerName
-}) => {
-  const { toast } = useToast();
+  onEnd,
+  userName = "You",
+  remoteUserName = "Peer"
+}: VideoCallProps) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [connecting, setConnecting] = useState(true);
-  const [connected, setConnected] = useState(false);
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [signalData, setSignalData] = useState<string>('');
-
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLocalAudioEnabled, setIsLocalAudioEnabled] = useState(true);
+  const [isLocalVideoEnabled, setIsLocalVideoEnabled] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(isInitiator ? "Calling..." : "Incoming call...");
+  const [callTime, setCallTime] = useState(0);
+  const [isAnswerOverlayVisible, setIsAnswerOverlayVisible] = useState(!isInitiator);
+  
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<any>(null);
-  const localVideoRef = useRef<Webcam>(null);
-
-  // Initialize peer connection
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const originalStreamRef = useRef<MediaStream | null>(null);
+  
+  const {
+    status: wsStatus,
+    sendMessage,
+    addEventListener
+  } = useWebSocket(userId);
+  
+  // Initialize media stream
   useEffect(() => {
     const initializeMedia = async () => {
       try {
@@ -43,265 +55,461 @@ const VideoCall: React.FC<VideoCallProps> = ({
           video: true, 
           audio: true 
         });
-        setLocalStream(stream);
         
-        const peer = new SimplePeer({
-          initiator: isInitiator,
-          trickle: false,
-          stream: stream
-        });
-
-        peer.on('signal', (data: any) => {
-          // In a real app, this would be sent to the server and then to the peer
-          const signalString = JSON.stringify(data);
-          setSignalData(signalString);
-          if (onPeerData) {
-            onPeerData(signalString);
-          }
-        });
-
-        peer.on('connect', () => {
-          setConnecting(false);
-          setConnected(true);
-          toast({
-            title: "Connected!",
-            description: `You are now connected with ${peerName}`,
+        console.log("Got local media stream");
+        setLocalStream(stream);
+        originalStreamRef.current = stream;
+        
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        
+        if (isInitiator && wsStatus === "open") {
+          // Initiator starts the call process after getting media
+          sendMessage({
+            type: "video_call_request",
+            from: userId,
+            to: remoteUserId
           });
-        });
-
-        peer.on('stream', (stream: MediaStream) => {
-          setRemoteStream(stream);
-        });
-
-        peer.on('error', (err: Error) => {
-          console.error('Peer error:', err);
-          toast({
-            title: "Connection Error",
-            description: "There was an error connecting to the peer. Please try again.",
-            variant: "destructive",
-          });
-        });
-
-        peerRef.current = peer;
-
-        // If we have peer data (the other person's signal), connect to them
-        if (peerData) {
-          try {
-            peer.signal(JSON.parse(peerData));
-          } catch (error) {
-            console.error('Error connecting to peer:', error);
-          }
+          setStatusMessage("Calling...");
         }
       } catch (error) {
-        console.error('Error accessing media devices:', error);
-        toast({
-          title: "Camera/Microphone Error",
-          description: "Could not access your camera or microphone. Please check permissions.",
-          variant: "destructive",
-        });
+        console.error("Error accessing media devices:", error);
+        setStatusMessage("Failed to access camera/microphone");
       }
     };
-
+    
     initializeMedia();
-
-    // Cleanup function
+    
     return () => {
+      // Clean up media stream
       if (localStream) {
-        localStream.getTracks().forEach(track => {
-          track.stop();
-        });
+        localStream.getTracks().forEach(track => track.stop());
       }
       
-      if (peerRef.current) {
-        peerRef.current.destroy();
+      if (originalStreamRef.current) {
+        originalStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isInitiator, peerData]);
-
-  // Update peer connection when the other person's signal is received
-  useEffect(() => {
-    if (peerData && peerRef.current) {
-      try {
-        peerRef.current.signal(JSON.parse(peerData));
-      } catch (error) {
-        console.error('Error processing peer data:', error);
-      }
-    }
-  }, [peerData]);
-
-  // Toggle video
-  const toggleVideo = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !videoEnabled;
-      });
-      setVideoEnabled(!videoEnabled);
-    }
-  };
-
-  // Toggle audio
-  const toggleAudio = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !audioEnabled;
-      });
-      setAudioEnabled(!audioEnabled);
-    }
-  };
-
-  // End the call
-  const endCall = () => {
+  }, [userId, remoteUserId, isInitiator, wsStatus, sendMessage]);
+  
+  // Create WebRTC connection when user answers call or when initiator has media ready
+  const initializePeerConnection = useCallback((isOfferer: boolean, signal?: any) => {
+    if (!localStream) return;
+    
+    // Stop any existing peer connection
     if (peerRef.current) {
       peerRef.current.destroy();
     }
+    
+    const peer = new SimplePeer({
+      initiator: isOfferer,
+      stream: localStream,
+      trickle: false
+    });
+    
+    peerRef.current = peer;
+    
+    peer.on('signal', (data: any) => {
+      console.log("Got signal data to send to peer", isOfferer ? "as offerer" : "as answerer");
+      sendMessage({
+        type: isOfferer ? "video_call_offer" : "video_call_answer",
+        from: userId,
+        to: remoteUserId,
+        signal: data
+      });
+    });
+    
+    peer.on('connect', () => {
+      console.log("Peer connection established");
+      setIsConnected(true);
+      setIsCallActive(true);
+      setStatusMessage("Connected");
+      
+      // Start call timer
+      callTimerRef.current = setInterval(() => {
+        setCallTime(prev => prev + 1);
+      }, 1000);
+    });
+    
+    peer.on('stream', (stream: MediaStream) => {
+      console.log("Received remote stream");
+      setRemoteStream(stream);
+      
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+    });
+    
+    peer.on('close', () => {
+      console.log("Peer connection closed");
+      cleanupCall();
+    });
+    
+    peer.on('error', (err: Error) => {
+      console.error("Peer connection error:", err);
+      setStatusMessage("Connection error");
+      cleanupCall();
+    });
+    
+    // If we have a signal from the remote peer (answering a call), use it
+    if (!isOfferer && signal) {
+      peer.signal(signal);
+    }
+  }, [localStream, userId, remoteUserId, sendMessage]);
+  
+  // Handle WebSocket messages for video call signaling
+  useEffect(() => {
+    const removeVideoCallRequestListener = addEventListener('video_call_request', (data) => {
+      if (data.to === userId && data.from === remoteUserId) {
+        setStatusMessage("Incoming call...");
+        setIsAnswerOverlayVisible(true);
+      }
+    });
+    
+    const removeVideoCallOfferListener = addEventListener('video_call_offer', (data) => {
+      if (data.to === userId && data.from === remoteUserId) {
+        if (!isInitiator) {
+          console.log("Received call offer, waiting for user to answer");
+          // Store the offer to use when user answers
+          peerRef.current = peerRef.current || { signal: data.signal } as any;
+        }
+      }
+    });
+    
+    const removeVideoCallAnswerListener = addEventListener('video_call_answer', (data) => {
+      if (data.to === userId && data.from === remoteUserId && peerRef.current && 'signal' in peerRef.current) {
+        console.log("Received call answer");
+        peerRef.current.signal(data.signal);
+      }
+    });
+    
+    const removeVideoCallEndListener = addEventListener('video_call_end', (data) => {
+      if (data.to === userId && data.from === remoteUserId) {
+        setStatusMessage("Call ended");
+        cleanupCall();
+        if (onEnd) onEnd();
+      }
+    });
+    
+    return () => {
+      removeVideoCallRequestListener();
+      removeVideoCallOfferListener();
+      removeVideoCallAnswerListener();
+      removeVideoCallEndListener();
+    };
+  }, [userId, remoteUserId, isInitiator, addEventListener, onEnd]);
+  
+  // Answer call function
+  const answerCall = useCallback(() => {
+    setIsAnswerOverlayVisible(false);
+    
+    if (peerRef.current && 'signal' in peerRef.current) {
+      const signal = (peerRef.current as any).signal;
+      initializePeerConnection(false, signal);
+    } else {
+      initializePeerConnection(false);
+    }
+    
+    sendMessage({
+      type: "video_call_accepted",
+      from: userId,
+      to: remoteUserId
+    });
+    
+    setStatusMessage("Connecting...");
+  }, [userId, remoteUserId, initializePeerConnection, sendMessage]);
+  
+  // Reject/end call
+  const endCall = useCallback(() => {
+    sendMessage({
+      type: "video_call_end",
+      from: userId,
+      to: remoteUserId
+    });
+    
+    cleanupCall();
+    if (onEnd) onEnd();
+  }, [userId, remoteUserId, sendMessage, onEnd]);
+  
+  // Start call as initiator
+  const startCall = useCallback(() => {
+    if (isInitiator) {
+      initializePeerConnection(true);
+      setStatusMessage("Calling...");
+    }
+  }, [isInitiator, initializePeerConnection]);
+  
+  // Clean up function
+  const cleanupCall = useCallback(() => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+    
+    if (peerRef.current) {
+      peerRef.current.destroy();
+      peerRef.current = null;
+    }
+    
+    setIsCallActive(false);
+    setIsConnected(false);
+    setCallTime(0);
+  }, []);
+  
+  // Toggle local audio
+  const toggleAudio = () => {
     if (localStream) {
-      localStream.getTracks().forEach(track => {
-        track.stop();
+      const audioTracks = localStream.getAudioTracks();
+      audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
       });
-    }
-    onClose();
-  };
-
-  // Copy connection string to clipboard
-  const copyConnectionString = () => {
-    if (signalData) {
-      navigator.clipboard.writeText(signalData);
-      toast({
-        title: "Connection Code Copied!",
-        description: "Share this code with the other person to connect.",
-      });
+      setIsLocalAudioEnabled(!isLocalAudioEnabled);
     }
   };
-
+  
+  // Toggle local video
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTracks = localStream.getVideoTracks();
+      videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsLocalVideoEnabled(!isLocalVideoEnabled);
+    }
+  };
+  
+  // Toggle screen sharing
+  const toggleScreenSharing = async () => {
+    try {
+      if (!isScreenSharing) {
+        // Start screen sharing
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true
+        });
+        
+        // Save original stream
+        if (!originalStreamRef.current && localStream) {
+          originalStreamRef.current = localStream;
+        }
+        
+        // Replace video track
+        if (peerRef.current) {
+          const videoTrack = screenStream.getVideoTracks()[0];
+          const sender = (peerRef.current as any).senders?.find(
+            (s: any) => s.track.kind === 'video'
+          );
+          
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+          }
+        }
+        
+        setLocalStream(screenStream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream;
+        }
+        
+        // Listen for end of screen sharing
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          stopScreenSharing();
+        });
+        
+        setIsScreenSharing(true);
+      } else {
+        stopScreenSharing();
+      }
+    } catch (error) {
+      console.error("Error sharing screen:", error);
+    }
+  };
+  
+  const stopScreenSharing = () => {
+    if (localStream && isScreenSharing) {
+      // Stop all tracks of screen sharing stream
+      localStream.getTracks().forEach(track => track.stop());
+      
+      // Restore original stream
+      if (originalStreamRef.current) {
+        if (peerRef.current) {
+          const videoTrack = originalStreamRef.current.getVideoTracks()[0];
+          const sender = (peerRef.current as any).senders?.find(
+            (s: any) => s.track.kind === 'video'
+          );
+          
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
+          }
+        }
+        
+        setLocalStream(originalStreamRef.current);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = originalStreamRef.current;
+        }
+      }
+      
+      setIsScreenSharing(false);
+    }
+  };
+  
+  // Format call time
+  const formatCallTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Local Video */}
-        <Card className="relative overflow-hidden bg-gray-900 rounded-lg">
-          <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-white text-sm">
-            {userName} (You)
-          </div>
-          {localStream && (
-            <Webcam
-              audio={false}
-              ref={localVideoRef}
-              videoConstraints={{ deviceId: localStream.getVideoTracks()[0].id }}
-              className={`w-full h-64 object-cover ${!videoEnabled ? 'hidden' : ''}`}
-            />
-          )}
-          {!videoEnabled && (
-            <div className="w-full h-64 flex items-center justify-center bg-gray-800 text-white">
-              <VideoOff size={48} />
+    <motion.div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <Card className="w-full max-w-5xl h-[90vh] bg-slate-900 border-slate-700 overflow-hidden relative">
+        <div className="h-full flex flex-col">
+          {/* Call status bar */}
+          <div className="bg-slate-800 px-4 py-2 flex items-center justify-between border-b border-slate-700">
+            <div className="flex items-center space-x-2">
+              <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+              <span className="text-white font-medium">{statusMessage}</span>
             </div>
-          )}
-        </Card>
-
-        {/* Remote Video */}
-        <Card className="relative overflow-hidden bg-gray-900 rounded-lg">
-          <div className="absolute top-2 left-2 z-10 bg-black/50 px-2 py-1 rounded text-white text-sm">
-            {peerName}
-          </div>
-          {remoteStream ? (
-            <video
-              autoPlay
-              playsInline
-              ref={(video) => {
-                if (video && remoteStream) video.srcObject = remoteStream;
-              }}
-              className="w-full h-64 object-cover"
-            />
-          ) : (
-            <div className="w-full h-64 flex flex-col items-center justify-center bg-gray-800 text-white p-4">
-              {connecting ? (
-                <>
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-                  <p>Connecting to {peerName}...</p>
-                  {!connected && signalData && (
-                    <div className="mt-4 text-center">
-                      <p className="mb-2 text-sm">If they're not connecting automatically, share your code:</p>
-                      <Button size="sm" onClick={copyConnectionString}>
-                        Copy Connection Code
-                      </Button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <VideoOff size={48} className="mb-2" />
-                  <p>Waiting for {peerName}'s video...</p>
-                </>
+            <div className="text-slate-300">
+              {isCallActive && (
+                <span>{formatCallTime(callTime)}</span>
               )}
             </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Connection string input for manual connections */}
-      {!connected && !remoteStream && (
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm mb-2">Ask the other person to share their connection code:</p>
-            <textarea 
-              className="w-full p-2 border rounded mb-2 text-xs font-mono"
-              placeholder="Paste connection code here..."
-              rows={3}
-              value={peerData || ''}
-              onChange={(e) => {
-                if (onPeerData) {
-                  onPeerData(e.target.value);
-                }
-              }}
-            />
-            <Button 
-              size="sm" 
-              disabled={!peerData} 
-              onClick={() => {
-                if (peerRef.current && peerData) {
-                  try {
-                    peerRef.current.signal(JSON.parse(peerData));
-                  } catch (error) {
-                    console.error('Error connecting with code:', error);
-                    toast({
-                      title: "Invalid Connection Code",
-                      description: "Please check the code and try again.",
-                      variant: "destructive",
-                    });
-                  }
-                }
-              }}
-            >
-              Connect
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Controls */}
-      <div className="flex justify-center space-x-4">
-        <Button 
-          variant={audioEnabled ? "outline" : "destructive"} 
-          size="icon" 
-          onClick={toggleAudio}
-        >
-          {audioEnabled ? <Mic /> : <MicOff />}
-        </Button>
-        <Button 
-          variant={videoEnabled ? "outline" : "destructive"} 
-          size="icon" 
-          onClick={toggleVideo}
-        >
-          {videoEnabled ? <Video /> : <VideoOff />}
-        </Button>
-        <Button 
-          variant="destructive" 
-          size="icon" 
-          onClick={endCall}
-        >
-          <PhoneOff />
-        </Button>
-      </div>
-    </div>
+          </div>
+          
+          {/* Video area */}
+          <div className="flex-grow relative bg-slate-950">
+            {/* Remote video (large) */}
+            {remoteStream ? (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-32 h-32 rounded-full bg-slate-800 mx-auto flex items-center justify-center">
+                    <span className="text-6xl text-slate-400">
+                      {remoteUserName?.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-white text-xl">{remoteUserName}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Local video (small overlay) */}
+            <div className="absolute bottom-4 right-4 w-64 h-48 rounded-lg overflow-hidden border-2 border-slate-700 shadow-lg">
+              {localStream ? (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                  <span className="text-4xl text-slate-400">{userName?.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+              <div className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded-full">
+                {userName}
+              </div>
+            </div>
+            
+            {/* Call controls */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center space-x-4">
+              <motion.div 
+                className="bg-slate-800/80 backdrop-blur-md p-3 rounded-full flex items-center space-x-4"
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                transition={{ delay: 0.2, type: "spring" }}
+              >
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`rounded-full ${isLocalAudioEnabled ? 'text-white hover:text-white/80' : 'bg-red-500/80 text-white hover:bg-red-600/80'}`}
+                  onClick={toggleAudio}
+                >
+                  {isLocalAudioEnabled ? <Mic /> : <MicOff />}
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`rounded-full ${isLocalVideoEnabled ? 'text-white hover:text-white/80' : 'bg-red-500/80 text-white hover:bg-red-600/80'}`}
+                  onClick={toggleVideo}
+                >
+                  {isLocalVideoEnabled ? <Video /> : <VideoOff />}
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`rounded-full ${isScreenSharing ? 'bg-blue-500/80 text-white hover:bg-blue-600/80' : 'text-white hover:text-white/80'}`}
+                  onClick={toggleScreenSharing}
+                >
+                  {isScreenSharing ? <Monitor /> : <Share2 />}
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full bg-red-500 hover:bg-red-600 text-white"
+                  onClick={endCall}
+                >
+                  <PhoneOff />
+                </Button>
+              </motion.div>
+            </div>
+            
+            {/* Incoming call overlay */}
+            <AnimatePresence>
+              {isAnswerOverlayVisible && (
+                <motion.div 
+                  className="absolute inset-0 flex items-center justify-center bg-black/70"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-white mb-2">Incoming call</h3>
+                    <p className="text-lg text-slate-300 mb-8">
+                      {remoteUserName} is calling you
+                    </p>
+                    <div className="flex justify-center space-x-4">
+                      <Button 
+                        variant="destructive" 
+                        size="lg" 
+                        className="rounded-full w-16 h-16 flex items-center justify-center"
+                        onClick={endCall}
+                      >
+                        <PhoneOff className="h-6 w-6" />
+                      </Button>
+                      
+                      <Button 
+                        variant="default" 
+                        size="lg"
+                        className="rounded-full w-16 h-16 flex items-center justify-center bg-green-500 hover:bg-green-600"
+                        onClick={answerCall}
+                      >
+                        <Phone className="h-6 w-6" />
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </Card>
+    </motion.div>
   );
-};
-
-export default VideoCall;
+}
