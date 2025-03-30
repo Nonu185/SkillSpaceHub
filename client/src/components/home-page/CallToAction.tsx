@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Link } from "wouter";
 
 export default function CallToAction() {
   const handleSubscribe = (e: React.FormEvent) => {
@@ -21,12 +22,16 @@ export default function CallToAction() {
               Join SkillSpace today and get access to expert-led courses, personalized mentorship, study spaces, and skill exchange opportunities.
             </p>
             <div className="mt-8 flex">
-              <Button variant="secondary" size="lg">
-                Get Started
-              </Button>
-              <Button variant="ghost" size="lg" className="ml-3 text-white hover:bg-blue-700 border border-white">
-                Learn more
-              </Button>
+              <Link href="/register">
+                <Button variant="secondary" size="lg">
+                  Get Started
+                </Button>
+              </Link>
+              <Link href="/about">
+                <Button variant="ghost" size="lg" className="ml-3 text-white hover:bg-blue-700 border border-white">
+                  Learn more
+                </Button>
+              </Link>
             </div>
           </div>
           <div className="mt-10 lg:mt-0">
@@ -54,7 +59,9 @@ export default function CallToAction() {
               </CardContent>
               <CardFooter className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <p className="text-xs text-gray-600">We respect your privacy. Unsubscribe at any time.</p>
-                <a href="#" className="text-xs text-primary font-medium">Privacy Policy</a>
+                <Link href="/about">
+                  <span className="text-xs text-primary font-medium cursor-pointer">Privacy Policy</span>
+                </Link>
               </CardFooter>
             </Card>
           </div>

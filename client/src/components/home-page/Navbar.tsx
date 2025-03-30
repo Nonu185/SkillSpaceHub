@@ -19,28 +19,23 @@ const navItems = [
   {
     label: "Courses",
     dropdown: [
-      { label: "Data Science", href: "#" },
-      { label: "Programming", href: "#" },
-      { label: "Business", href: "#" },
-      { label: "Design", href: "#" },
+      { label: "Data Science", href: "/courses?category=Data%20Science" },
+      { label: "Programming", href: "/courses?category=Programming" },
+      { label: "Business", href: "/courses?category=Business" },
+      { label: "Design", href: "/courses?category=Design" },
     ],
   },
-  { label: "Find Mentors", href: "#" },
-  { label: "Study Spaces", href: "#" },
-  { label: "Skill Exchange", href: "#" },
-  { label: "About", href: "#" },
+  { label: "Find Mentors", href: "/mentors" },
+  { label: "Study Spaces", href: "/study-spaces" },
+  { label: "Skill Exchange", href: "/skill-exchange" },
+  { label: "About", href: "/about" },
 ];
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleLogin = () => {
-    console.log("Login clicked");
-  };
-
-  const handleRegister = () => {
-    console.log("Register clicked");
-  };
+  // No longer needed with Link components
+  // Using Link from wouter for navigation instead of window.location
 
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-50">
@@ -81,12 +76,16 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center">
-            <Button variant="ghost" className="text-primary" onClick={handleLogin}>
-              Log in
-            </Button>
-            <Button variant="default" className="ml-3" onClick={handleRegister}>
-              Register
-            </Button>
+            <Link href="/login">
+              <Button variant="ghost" className="text-primary">
+                Log in
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="default" className="ml-3">
+                Register
+              </Button>
+            </Link>
 
             <div className="ml-4 md:hidden">
               <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -119,12 +118,16 @@ export default function Navbar() {
                         </div>
                       ))}
                       <div className="px-4 pt-4 flex flex-col space-y-2">
-                        <Button variant="outline" className="w-full" onClick={handleLogin}>
-                          Log in
-                        </Button>
-                        <Button className="w-full" onClick={handleRegister}>
-                          Register
-                        </Button>
+                        <Link href="/login" className="w-full">
+                          <Button variant="outline" className="w-full">
+                            Log in
+                          </Button>
+                        </Link>
+                        <Link href="/register" className="w-full">
+                          <Button className="w-full">
+                            Register
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   </div>

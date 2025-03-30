@@ -1,20 +1,24 @@
 import { BookOpen, Users, Briefcase } from "lucide-react";
+import { Link } from "wouter";
 
 const features = [
   {
     icon: <BookOpen className="h-6 w-6 text-white" />,
     title: "Expert-led Courses",
-    description: "Access quality courses curated by industry professionals to gain practical skills that matter."
+    description: "Access quality courses curated by industry professionals to gain practical skills that matter.",
+    href: "/courses"
   },
   {
     icon: <Users className="h-6 w-6 text-white" />,
     title: "Personalized Mentorship",
-    description: "Connect with industry mentors who provide guidance and feedback on your learning journey."
+    description: "Connect with industry mentors who provide guidance and feedback on your learning journey.",
+    href: "/mentors"
   },
   {
     icon: <Briefcase className="h-6 w-6 text-white" />,
     title: "Study Space Booking",
-    description: "Reserve quiet study venues for individual or group learning sessions to maximize productivity."
+    description: "Reserve quiet study venues for individual or group learning sessions to maximize productivity.",
+    href: "/study-spaces"
   }
 ];
 
@@ -35,17 +39,19 @@ export default function Features() {
         <div className="mt-10">
           <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
             {features.map((feature, index) => (
-              <div key={index} className="relative border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition">
-                <div className="absolute top-6 left-6 h-12 w-12 bg-primary rounded-md flex items-center justify-center">
-                  {feature.icon}
+              <Link key={index} href={feature.href} className="block">
+                <div className="relative border border-gray-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition cursor-pointer">
+                  <div className="absolute top-6 left-6 h-12 w-12 bg-primary rounded-md flex items-center justify-center">
+                    {feature.icon}
+                  </div>
+                  <div className="ml-16">
+                    <h3 className="text-lg font-medium text-gray-900">{feature.title}</h3>
+                    <p className="mt-2 text-base text-gray-500">
+                      {feature.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="ml-16">
-                  <h3 className="text-lg font-medium text-gray-900">{feature.title}</h3>
-                  <p className="mt-2 text-base text-gray-500">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

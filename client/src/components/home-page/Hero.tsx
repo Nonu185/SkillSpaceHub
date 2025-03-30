@@ -21,14 +21,14 @@ export default function Hero() {
                   <div className="mt-8 sm:max-w-lg sm:mx-auto sm:text-center lg:text-left lg:mx-0">
                     <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                       <div className="rounded-md shadow">
-                        <Link href="#courses">
+                        <Link href="/courses">
                           <Button size="lg" className="w-full md:text-lg md:px-10">
                             Explore Courses
                           </Button>
                         </Link>
                       </div>
                       <div className="mt-3 sm:mt-0 sm:ml-3">
-                        <Link href="#mentors">
+                        <Link href="/mentors">
                           <Button variant="outline" size="lg" className="w-full md:text-lg md:px-10">
                             Find a Mentor
                           </Button>
