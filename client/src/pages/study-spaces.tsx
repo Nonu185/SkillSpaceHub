@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Calendar, MapPin, Users, Wifi, Coffee, Clock, Monitor } from "lucide-react";
+import { Search, Calendar, MapPin, Users, Wifi, Coffee, Clock, Monitor, Loader2, Check } from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import {
@@ -19,16 +19,28 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-// Mock study spaces data
+// Mock study spaces data with Bangalore areas
 const studySpaces = [
   {
     id: 1,
-    name: "Central Library Study Hub",
+    name: "InnovatorsLab Study Hub",
     description: "A quiet space with individual study cubicles and high-speed internet.",
     image: "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1169&q=80",
-    location: "South Delhi",
+    location: "Koramangala",
     price: "₹150/hour",
     capacity: "50 people",
     amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Air Conditioning", "Computers"],
@@ -41,7 +53,7 @@ const studySpaces = [
     name: "TechHub Co-working Space",
     description: "Modern co-working space ideal for group projects and collaborative learning.",
     image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?ixlib=rb-1.2.1&auto=format&fit=crop&w=1169&q=80",
-    location: "Gurgaon",
+    location: "Indiranagar",
     price: "₹250/hour",
     capacity: "30 people",
     amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Whiteboards", "Projector"],
@@ -54,7 +66,7 @@ const studySpaces = [
     name: "Serene Study Café",
     description: "Calm café environment with dedicated study zones and great coffee.",
     image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-1.2.1&auto=format&fit=crop&w=1147&q=80",
-    location: "Noida",
+    location: "HSR Layout",
     price: "₹100/hour",
     capacity: "25 people",
     amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Snacks"],
@@ -67,7 +79,7 @@ const studySpaces = [
     name: "Campus Innovation Center",
     description: "University facility with advanced tech tools and quiet study areas.",
     image: "https://images.unsplash.com/photo-1519155031214-e8d583928bf2?ixlib=rb-1.2.1&auto=format&fit=crop&w=1170&q=80",
-    location: "North Delhi",
+    location: "Whitefield",
     price: "₹200/hour",
     capacity: "40 people",
     amenities: ["Wi-Fi", "Power Outlets", "Computers", "Printer", "Technical Support"],
@@ -80,7 +92,7 @@ const studySpaces = [
     name: "Mindful Reading Room",
     description: "Traditional library setting with extensive reference materials and silence policy.",
     image: "https://images.unsplash.com/photo-1568667256549-094345857637?ixlib=rb-1.2.1&auto=format&fit=crop&w=1170&q=80",
-    location: "South Delhi",
+    location: "Jayanagar",
     price: "₹80/hour",
     capacity: "60 people",
     amenities: ["Wi-Fi", "Power Outlets", "Reference Books"],
@@ -93,7 +105,7 @@ const studySpaces = [
     name: "Creative Commons Space",
     description: "Artistic environment designed to inspire creativity and innovation in projects.",
     image: "https://images.unsplash.com/photo-1517502884422-41eaead166d4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1025&q=80",
-    location: "Gurgaon",
+    location: "Electronic City",
     price: "₹180/hour",
     capacity: "35 people",
     amenities: ["Wi-Fi", "Power Outlets", "Art Supplies", "Coffee Shop", "Music"],
@@ -103,24 +115,92 @@ const studySpaces = [
   }
 ];
 
-const locations = ["All Locations", "South Delhi", "North Delhi", "Gurgaon", "Noida"];
+const locations = ["All Locations", "Koramangala", "Indiranagar", "HSR Layout", "Whitefield", "Jayanagar", "Electronic City"];
 const amenities = ["Wi-Fi", "Power Outlets", "Coffee Shop", "Computers", "Whiteboards", "Reference Books"];
 
 export default function StudySpaces() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [availabilityFilter, setAvailabilityFilter] = useState("all");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [timeSlot, setTimeSlot] = useState("any");
+  
+  // Host form state
+  const [hostDialogOpen, setHostDialogOpen] = useState(false);
+  const [hostName, setHostName] = useState("");
+  const [hostEmail, setHostEmail] = useState("");
+  const [hostPhone, setHostPhone] = useState("");
+  const [hostLocation, setHostLocation] = useState("");
+  const [hostSpaceType, setHostSpaceType] = useState("");
+  const [hostDescription, setHostDescription] = useState("");
+  const [hostCapacity, setHostCapacity] = useState("");
+  const [hostPrice, setHostPrice] = useState("");
+  const [hostAmenities, setHostAmenities] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Toggle amenity selection
+  // Toggle amenity selection for filtering
   const toggleAmenity = (amenity: string) => {
     if (selectedAmenities.includes(amenity)) {
       setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
     } else {
       setSelectedAmenities([...selectedAmenities, amenity]);
     }
+  };
+  
+  // Toggle amenity selection for host form
+  const toggleHostAmenity = (amenity: string) => {
+    if (hostAmenities.includes(amenity)) {
+      setHostAmenities(hostAmenities.filter(a => a !== amenity));
+    } else {
+      setHostAmenities([...hostAmenities, amenity]);
+    }
+  };
+  
+  // Handle host form submission
+  const handleHostSubmit = () => {
+    // Form validation
+    if (!hostName || !hostEmail || !hostPhone || !hostLocation || 
+        !hostSpaceType || !hostDescription || !hostCapacity || !hostPrice) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    // Simulate form submission
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setShowSuccess(true);
+      
+      // Reset form after showing success state
+      setTimeout(() => {
+        setHostDialogOpen(false);
+        setShowSuccess(false);
+        
+        // Clear form fields
+        setHostName("");
+        setHostEmail("");
+        setHostPhone("");
+        setHostLocation("");
+        setHostSpaceType("");
+        setHostDescription("");
+        setHostCapacity("");
+        setHostPrice("");
+        setHostAmenities([]);
+        
+        toast({
+          title: "Success!",
+          description: "Your space has been submitted for review. We'll contact you soon.",
+        });
+      }, 2000);
+    }, 1500);
   };
 
   // Filter study spaces based on search, location, amenities, and availability
@@ -353,7 +433,170 @@ export default function StudySpaces() {
             <p className="text-gray-600 max-w-2xl mx-auto mb-6">
               List your space on SkillSpace and earn money by renting it out to students and learners.
             </p>
-            <Button size="lg">Become a Host</Button>
+            <Dialog open={hostDialogOpen} onOpenChange={setHostDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg">Become a Host</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                {!showSuccess ? (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>List your study space</DialogTitle>
+                      <DialogDescription>
+                        Fill in the details about your space. We'll review your submission and contact you soon.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input 
+                          id="name" 
+                          value={hostName}
+                          onChange={(e) => setHostName(e.target.value)}
+                          placeholder="Your name"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input 
+                          id="email" 
+                          type="email"
+                          value={hostEmail}
+                          onChange={(e) => setHostEmail(e.target.value)}
+                          placeholder="Your email address"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input 
+                          id="phone" 
+                          value={hostPhone}
+                          onChange={(e) => setHostPhone(e.target.value)}
+                          placeholder="Your phone number"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="location">Space Location</Label>
+                        <Select value={hostLocation} onValueChange={setHostLocation}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locations.slice(1).map((location) => (
+                              <SelectItem key={location} value={location}>
+                                {location}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="type">Space Type</Label>
+                        <Select value={hostSpaceType} onValueChange={setHostSpaceType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="library">Library</SelectItem>
+                            <SelectItem value="cafe">Café</SelectItem>
+                            <SelectItem value="coworking">Co-working Space</SelectItem>
+                            <SelectItem value="classroom">Classroom</SelectItem>
+                            <SelectItem value="conference">Conference Room</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="capacity">Capacity</Label>
+                        <Input 
+                          id="capacity" 
+                          value={hostCapacity}
+                          onChange={(e) => setHostCapacity(e.target.value)}
+                          placeholder="Number of people (e.g., 20)"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Price per Hour (₹)</Label>
+                        <Input 
+                          id="price" 
+                          value={hostPrice}
+                          onChange={(e) => setHostPrice(e.target.value)}
+                          placeholder="Amount in Rupees"
+                        />
+                      </div>
+                      
+                      <div className="col-span-2 space-y-2">
+                        <Label htmlFor="description">Space Description</Label>
+                        <Textarea 
+                          id="description" 
+                          value={hostDescription}
+                          onChange={(e) => setHostDescription(e.target.value)}
+                          placeholder="Describe your space in detail"
+                          rows={4}
+                        />
+                      </div>
+                      
+                      <div className="col-span-2 space-y-2">
+                        <Label>Amenities Available</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                          {amenities.map((amenity) => (
+                            <Button 
+                              key={amenity}
+                              type="button"
+                              variant={hostAmenities.includes(amenity) ? "default" : "outline"} 
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => toggleHostAmenity(amenity)}
+                            >
+                              {amenity === "Wi-Fi" && <Wifi className="mr-2 h-4 w-4" />}
+                              {amenity === "Coffee Shop" && <Coffee className="mr-2 h-4 w-4" />}
+                              {amenity === "Computers" && <Monitor className="mr-2 h-4 w-4" />}
+                              {!["Wi-Fi", "Coffee Shop", "Computers"].includes(amenity) && 
+                                <div className="w-4 h-4 mr-2" />}
+                              {amenity}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <DialogFooter>
+                      <Button
+                        type="submit"
+                        onClick={handleHostSubmit}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Application"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                      <Check className="h-6 w-6 text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
+                    <p className="text-gray-600 mb-6">
+                      Thank you for your interest in hosting a study space. Our team will review your application and contact you shortly.
+                    </p>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
