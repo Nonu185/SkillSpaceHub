@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Calendar, MapPin, Users, Wifi, Coffee, Clock, Monitor, Loader2, Check } from "lucide-react";
+import { 
+  Search, Plus, Repeat, MessageSquare, Loader2, Video, 
+  VideoOff, Mic, MicOff, PhoneOff, Send, Calendar, Award
+} from "lucide-react";
 import Navbar from "@/components/home-page/Navbar";
 import Footer from "@/components/home-page/Footer";
 import {
@@ -13,215 +18,317 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { VideoCall } from "@/components/ui/video-call";
+import { motion } from "framer-motion";
+import useWebSocket from "@/hooks/useWebSocket";
 
-// Mock study spaces data with Bangalore areas
-const studySpaces = [
-  {
-    id: 1,
-    name: "InnovatorsLab Study Hub",
-    description: "A quiet space with individual study cubicles and high-speed internet.",
-    image: "https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1169&q=80",
-    location: "Koramangala",
-    price: "₹150/hour",
-    capacity: "50 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Air Conditioning", "Computers"],
-    availability: "Available",
-    rating: "4.8",
-    reviews: 126,
-  },
-  {
-    id: 2,
-    name: "TechHub Co-working Space",
-    description: "Modern co-working space ideal for group projects and collaborative learning.",
-    image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?ixlib=rb-1.2.1&auto=format&fit=crop&w=1169&q=80",
-    location: "Indiranagar",
-    price: "₹250/hour",
-    capacity: "30 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Whiteboards", "Projector"],
-    availability: "Limited Seats",
-    rating: "4.7",
-    reviews: 98,
-  },
-  {
-    id: 3,
-    name: "Serene Study Café",
-    description: "Calm café environment with dedicated study zones and great coffee.",
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-1.2.1&auto=format&fit=crop&w=1147&q=80",
-    location: "HSR Layout",
-    price: "₹100/hour",
-    capacity: "25 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Snacks"],
-    availability: "Available",
-    rating: "4.9",
-    reviews: 152,
-  },
-  {
-    id: 4,
-    name: "Campus Innovation Center",
-    description: "University facility with advanced tech tools and quiet study areas.",
-    image: "https://images.unsplash.com/photo-1519155031214-e8d583928bf2?ixlib=rb-1.2.1&auto=format&fit=crop&w=1170&q=80",
-    location: "Whitefield",
-    price: "₹200/hour",
-    capacity: "40 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Computers", "Printer", "Technical Support"],
-    availability: "Fully Booked",
-    rating: "4.6",
-    reviews: 87,
-  },
-  {
-    id: 5,
-    name: "Mindful Reading Room",
-    description: "Traditional library setting with extensive reference materials and silence policy.",
-    image: "https://images.unsplash.com/photo-1568667256549-094345857637?ixlib=rb-1.2.1&auto=format&fit=crop&w=1170&q=80",
-    location: "Jayanagar",
-    price: "₹80/hour",
-    capacity: "60 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Reference Books"],
-    availability: "Available",
-    rating: "4.5",
-    reviews: 64,
-  },
-  {
-    id: 6,
-    name: "Creative Commons Space",
-    description: "Artistic environment designed to inspire creativity and innovation in projects.",
-    image: "https://images.unsplash.com/photo-1517502884422-41eaead166d4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1025&q=80",
-    location: "Electronic City",
-    price: "₹180/hour",
-    capacity: "35 people",
-    amenities: ["Wi-Fi", "Power Outlets", "Art Supplies", "Coffee Shop", "Music"],
-    availability: "Limited Seats",
-    rating: "4.7",
-    reviews: 112,
-  }
+interface User {
+  id: number;
+  username: string;
+  name: string | null;
+  avatar: string | null;
+  bio: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
+interface SkillListing {
+  id: number;
+  userId: number;
+  offering: string[];
+  seeking: string[];
+  description: string;
+  timeCommitment: string;
+  experienceLevel: string;
+  createdAt: string;
+  createdAtFormatted?: string;
+  user?: User;
+}
+
+interface Message {
+  id: number;
+  listingId: number;
+  senderId: number;
+  receiverId: number;
+  message: string;
+  createdAt: string;
+  createdAtFormatted?: string;
+  read: boolean;
+}
+
+const skillCategories = [
+  "All Categories",
+  "Programming & Development",
+  "Design & Creative",
+  "Marketing & Sales",
+  "Writing & Translation",
+  "Finance & Accounting",
+  "Education & Teaching",
+  "Video & Animation",
+  "Music & Audio",
+  "Business & Entrepreneurship"
 ];
 
-const locations = ["All Locations", "Koramangala", "Indiranagar", "HSR Layout", "Whitefield", "Jayanagar", "Electronic City"];
-const amenities = ["Wi-Fi", "Power Outlets", "Coffee Shop", "Computers", "Whiteboards", "Reference Books"];
-
-export default function StudySpaces() {
+export default function SkillExchange() {
   const { toast } = useToast();
+  
+  // State variables for search and filters
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("All Locations");
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  const [availabilityFilter, setAvailabilityFilter] = useState("all");
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [timeSlot, setTimeSlot] = useState("any");
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedTab, setSelectedTab] = useState("offerings");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   
-  // Host form state
-  const [hostDialogOpen, setHostDialogOpen] = useState(false);
-  const [hostName, setHostName] = useState("");
-  const [hostEmail, setHostEmail] = useState("");
-  const [hostPhone, setHostPhone] = useState("");
-  const [hostLocation, setHostLocation] = useState("");
-  const [hostSpaceType, setHostSpaceType] = useState("");
-  const [hostDescription, setHostDescription] = useState("");
-  const [hostCapacity, setHostCapacity] = useState("");
-  const [hostPrice, setHostPrice] = useState("");
-  const [hostAmenities, setHostAmenities] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  // Current user (normally would come from auth context)
+  // For demo, we'll simulate being logged in as Neha
+  const currentUser = {
+    id: 4,
+    name: "Neha Gupta",
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&h=256&q=80",
+  };
 
-  // Toggle amenity selection for filtering
-  const toggleAmenity = (amenity: string) => {
-    if (selectedAmenities.includes(amenity)) {
-      setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
+  // New listing form state
+  const [newOffering, setNewOffering] = useState<string[]>([]);
+  const [newSeeking, setNewSeeking] = useState<string[]>([]);
+  const [newDescription, setNewDescription] = useState("");
+  const [newTimeCommitment, setNewTimeCommitment] = useState("");
+  const [newExperienceLevel, setNewExperienceLevel] = useState("");
+
+  // Message state
+  const [messageSheetOpen, setMessageSheetOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<SkillListing | null>(null);
+  const [messageText, setMessageText] = useState("");
+  
+  // Video call state
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [isCallInitiator, setIsCallInitiator] = useState(false);
+  
+  // Handle adding skills to offering/seeking
+  const [currentSkill, setCurrentSkill] = useState("");
+
+  // Fetch all skill listings
+  const { data: listings, isLoading, isError } = useQuery<SkillListing[]>({
+    queryKey: ['/api/skill-listings'],
+    refetchOnWindowFocus: false,
+  });
+  
+  // Create listing mutation
+  const createListingMutation = useMutation({
+    mutationFn: async (listingData: Omit<SkillListing, 'id' | 'createdAt'>) => {
+      return apiRequest(
+        'POST',
+        '/api/skill-listings',
+        listingData
+      );
+    },
+    onSuccess: () => {
+      // Show success message
+      toast({
+        title: "Listing created!",
+        description: "Your skill exchange listing has been posted successfully.",
+      });
+      
+      // Reset form and close dialog
+      setNewOffering([]);
+      setNewSeeking([]);
+      setNewDescription("");
+      setNewTimeCommitment("");
+      setNewExperienceLevel("");
+      setCreateDialogOpen(false);
+      
+      // Refetch listings to show the new one
+      queryClient.invalidateQueries({ queryKey: ['/api/skill-listings'] });
+    },
+    onError: (error) => {
+      console.error('Error creating listing:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem creating your listing. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (messageData: Omit<Message, 'id' | 'createdAt' | 'read' | 'createdAtFormatted'>) => {
+      return apiRequest(
+        'POST',
+        '/api/skill-messages',
+        messageData
+      );
+    },
+    onSuccess: () => {
+      // Show success message
+      toast({
+        title: "Message sent!",
+        description: "Your message has been sent successfully.",
+      });
+      
+      // Reset form and close sheet
+      setMessageText("");
+      setMessageSheetOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem sending your message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Add skill to offering or seeking
+  const handleAddSkill = (type: 'offering' | 'seeking') => {
+    if (!currentSkill.trim()) return;
+    
+    if (type === 'offering') {
+      setNewOffering([...newOffering, currentSkill]);
     } else {
-      setSelectedAmenities([...selectedAmenities, amenity]);
+      setNewSeeking([...newSeeking, currentSkill]);
+    }
+    setCurrentSkill("");
+  };
+
+  // Remove skill from offering or seeking
+  const handleRemoveSkill = (type: 'offering' | 'seeking', index: number) => {
+    if (type === 'offering') {
+      setNewOffering(newOffering.filter((_, i) => i !== index));
+    } else {
+      setNewSeeking(newSeeking.filter((_, i) => i !== index));
     }
   };
-  
-  // Toggle amenity selection for host form
-  const toggleHostAmenity = (amenity: string) => {
-    if (hostAmenities.includes(amenity)) {
-      setHostAmenities(hostAmenities.filter(a => a !== amenity));
-    } else {
-      setHostAmenities([...hostAmenities, amenity]);
-    }
-  };
-  
-  // Handle host form submission
-  const handleHostSubmit = () => {
-    // Form validation
-    if (!hostName || !hostEmail || !hostPhone || !hostLocation || 
-        !hostSpaceType || !hostDescription || !hostCapacity || !hostPrice) {
+
+  // Create a new listing
+  const handleCreateListing = () => {
+    // Validate form
+    if (newOffering.length === 0) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please add at least one skill you're offering.",
         variant: "destructive",
       });
       return;
     }
     
-    setIsSubmitting(true);
+    if (newSeeking.length === 0) {
+      toast({
+        title: "Missing information",
+        description: "Please add at least one skill you're seeking.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // Simulate form submission
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setShowSuccess(true);
-      
-      // Reset form after showing success state
-      setTimeout(() => {
-        setHostDialogOpen(false);
-        setShowSuccess(false);
-        
-        // Clear form fields
-        setHostName("");
-        setHostEmail("");
-        setHostPhone("");
-        setHostLocation("");
-        setHostSpaceType("");
-        setHostDescription("");
-        setHostCapacity("");
-        setHostPrice("");
-        setHostAmenities([]);
-        
-        toast({
-          title: "Success!",
-          description: "Your space has been submitted for review. We'll contact you soon.",
-        });
-      }, 2000);
-    }, 1500);
+    if (!newDescription) {
+      toast({
+        title: "Missing information",
+        description: "Please provide a description of your exchange.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newTimeCommitment) {
+      toast({
+        title: "Missing information",
+        description: "Please select a time commitment.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!newExperienceLevel) {
+      toast({
+        title: "Missing information",
+        description: "Please select your experience level.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Use a hardcoded user ID (1) since we're using in-memory storage
+    // Create the listing
+    createListingMutation.mutate({
+      userId: 1, // Using ID 1 for demo purposes since we know this user exists in storage
+      offering: newOffering,
+      seeking: newSeeking,
+      description: newDescription,
+      timeCommitment: newTimeCommitment,
+      experienceLevel: newExperienceLevel,
+    });
+  };
+  
+  // Open message sheet for a listing
+  const handleOpenMessageSheet = (listing: SkillListing) => {
+    setSelectedListing(listing);
+    setMessageSheetOpen(true);
+  };
+  
+  // Send a message to the listing owner
+  const handleSendMessage = () => {
+    if (!selectedListing || !messageText.trim()) {
+      toast({
+        title: "Cannot send message",
+        description: "Please enter a message before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Use hardcoded user ID for demo purposes
+    sendMessageMutation.mutate({
+      listingId: selectedListing.id,
+      senderId: 2, // Using ID 2 for demo purposes since we know this user exists in storage
+      receiverId: selectedListing.userId,
+      message: messageText,
+    });
   };
 
-  // Filter study spaces based on search, location, amenities, and availability
-  const filteredSpaces = studySpaces.filter((space) => {
+  // Filter listings based on search and category
+  const filteredListings = listings ? listings.filter((listing) => {
     // Filter by search term
-    const matchesSearch = space.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        space.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = 
+      listing.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (listing.user?.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      listing.offering.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      listing.seeking.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Filter by location
-    const matchesLocation = selectedLocation === "All Locations" || space.location === selectedLocation;
+    // Filter by category
+    const matchesCategory = selectedCategory === "All Categories" || (
+      selectedTab === "offerings" 
+        ? listing.offering.some(skill => skill.includes(selectedCategory.replace(' & ', ' ')))
+        : listing.seeking.some(skill => skill.includes(selectedCategory.replace(' & ', ' ')))
+    );
     
-    // Filter by amenities
-    const matchesAmenities = selectedAmenities.length === 0 || 
-                          selectedAmenities.every(amenity => space.amenities.includes(amenity));
-    
-    // Filter by availability
-    const matchesAvailability = availabilityFilter === "all" || 
-                              (availabilityFilter === "available" && space.availability === "Available");
-    
-    return matchesSearch && matchesLocation && matchesAmenities && matchesAvailability;
-  });
+    return matchesSearch && matchesCategory;
+  }) : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -229,72 +336,161 @@ export default function StudySpaces() {
       
       <div className="bg-primary text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-3xl font-bold sm:text-4xl">Find your ideal study space</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">Skill Exchange Marketplace</h1>
           <p className="mt-3 text-lg text-blue-100 max-w-2xl mx-auto">
-            Book quiet, equipped spaces to maximize your productivity and learning
+            Exchange your expertise with others in our collaborative learning community
           </p>
         </div>
       </div>
       
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row items-center gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <Input
                 className="pl-10"
-                placeholder="Search for study spaces..."
+                placeholder="Search skills, descriptions, or users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <MapPin className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Location" />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full md:w-[210px] justify-start">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : "Pick a date"}
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full md:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Listing
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <CalendarComponent
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            
-            <Select value={timeSlot} onValueChange={setTimeSlot}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <Clock className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Time Slot" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any Time</SelectItem>
-                <SelectItem value="morning">Morning (8AM-12PM)</SelectItem>
-                <SelectItem value="afternoon">Afternoon (12PM-4PM)</SelectItem>
-                <SelectItem value="evening">Evening (4PM-8PM)</SelectItem>
-                <SelectItem value="night">Night (8PM-12AM)</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button className="w-full md:w-auto">Search</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[525px]">
+                <DialogHeader>
+                  <DialogTitle>Create Skill Exchange Listing</DialogTitle>
+                  <DialogDescription>
+                    List the skills you're offering and what you're looking to learn in exchange.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Skills You're Offering</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a skill you can teach"
+                        value={currentSkill}
+                        onChange={(e) => setCurrentSkill(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSkill('offering');
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={() => handleAddSkill('offering')}>Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {newOffering.map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                          {skill}
+                          <button
+                            onClick={() => handleRemoveSkill('offering', index)}
+                            className="ml-1 h-3 w-3 rounded-full"
+                          >
+                            ✕
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Skills You're Seeking</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a skill you want to learn"
+                        value={currentSkill}
+                        onChange={(e) => setCurrentSkill(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSkill('seeking');
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={() => handleAddSkill('seeking')}>Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {newSeeking.map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                          {skill}
+                          <button
+                            onClick={() => handleRemoveSkill('seeking', index)}
+                            className="ml-1 h-3 w-3 rounded-full"
+                          >
+                            ✕
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Describe your experience and what you're looking to exchange"
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="time-commitment">Time Commitment</Label>
+                      <Select value={newTimeCommitment} onValueChange={setNewTimeCommitment}>
+                        <SelectTrigger id="time-commitment">
+                          <SelectValue placeholder="Select hours" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1-2 hours/week">1-2 hours/week</SelectItem>
+                          <SelectItem value="2-3 hours/week">2-3 hours/week</SelectItem>
+                          <SelectItem value="3-4 hours/week">3-4 hours/week</SelectItem>
+                          <SelectItem value="4-5 hours/week">4-5 hours/week</SelectItem>
+                          <SelectItem value="5+ hours/week">5+ hours/week</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="experience-level">Experience Level</Label>
+                      <Select value={newExperienceLevel} onValueChange={setNewExperienceLevel}>
+                        <SelectTrigger id="experience-level">
+                          <SelectValue placeholder="Select level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Beginner">Beginner</SelectItem>
+                          <SelectItem value="Intermediate">Intermediate</SelectItem>
+                          <SelectItem value="Advanced">Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    onClick={handleCreateListing}
+                    disabled={createListingMutation.isPending}
+                  >
+                    {createListingMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Create Listing
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>
@@ -304,121 +500,187 @@ export default function StudySpaces() {
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="lg:w-1/4">
               <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h3 className="font-semibold text-lg mb-4">Filters</h3>
+                <h3 className="font-semibold text-lg mb-4">Browse By</h3>
                 
-                <div className="mb-6">
-                  <h4 className="font-medium text-sm mb-2">Availability</h4>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant={availabilityFilter === "all" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setAvailabilityFilter("all")}
-                    >
-                      All
-                    </Button>
-                    <Button 
-                      variant={availabilityFilter === "available" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setAvailabilityFilter("available")}
-                    >
-                      Available Now
-                    </Button>
-                  </div>
-                </div>
+                <Tabs defaultValue="offerings" value={selectedTab} onValueChange={setSelectedTab} className="w-full mb-6">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="offerings">Offerings</TabsTrigger>
+                    <TabsTrigger value="seeking">Seeking</TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 
                 <div>
-                  <h4 className="font-medium text-sm mb-2">Amenities</h4>
-                  <div className="space-y-2">
-                    {amenities.map((amenity) => (
-                      <div key={amenity} className="flex items-center">
-                        <Button 
-                          variant={selectedAmenities.includes(amenity) ? "default" : "outline"} 
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => toggleAmenity(amenity)}
-                        >
-                          {amenity === "Wi-Fi" && <Wifi className="mr-2 h-4 w-4" />}
-                          {amenity === "Coffee Shop" && <Coffee className="mr-2 h-4 w-4" />}
-                          {amenity === "Computers" && <Monitor className="mr-2 h-4 w-4" />}
-                          {!["Wi-Fi", "Coffee Shop", "Computers"].includes(amenity) && 
-                            <div className="w-4 h-4 mr-2" />}
-                          {amenity}
-                        </Button>
-                      </div>
+                  <h4 className="font-medium text-sm mb-2">Categories</h4>
+                  <div className="space-y-1">
+                    {skillCategories.map((category) => (
+                      <Button
+                        key={category}
+                        variant={selectedCategory === category ? "default" : "ghost"}
+                        className="w-full justify-start font-normal"
+                        onClick={() => setSelectedCategory(category)}
+                      >
+                        {category}
+                      </Button>
                     ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-sm mt-6">
+                <h3 className="font-semibold text-lg mb-4">How It Works</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <Plus className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="font-medium text-sm">Create a listing</h4>
+                      <p className="text-sm text-gray-600">Share what you can offer and what you're looking to learn</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <MessageSquare className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="font-medium text-sm">Connect with others</h4>
+                      <p className="text-sm text-gray-600">Message potential exchange partners to discuss details</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <Repeat className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="font-medium text-sm">Exchange skills</h4>
+                      <p className="text-sm text-gray-600">Schedule sessions to teach and learn from each other</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             
             <div className="lg:w-3/4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredSpaces.map((space) => (
-                  <Card key={space.id} className="overflow-hidden hover:shadow-md transition">
-                    <div className="h-48 w-full overflow-hidden">
-                      <img 
-                        src={space.image} 
-                        alt={space.name} 
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <CardContent className="p-5">
-                      <div className="flex justify-between items-center mb-2">
-                        <Badge 
-                          variant={space.availability === "Available" ? "outline" : "secondary"}
-                          className={space.availability === "Available" 
-                            ? "border-green-500 text-green-600" 
-                            : space.availability === "Limited Seats"
-                              ? "bg-amber-100 text-amber-600 border-amber-200"
-                              : "bg-gray-200 text-gray-600"}
-                        >
-                          {space.availability}
-                        </Badge>
-                        <div className="flex items-center">
-                          <span className="font-semibold text-amber-500">{space.rating}</span>
-                          <span className="ml-1 text-sm text-gray-500">({space.reviews})</span>
-                        </div>
-                      </div>
-                      
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{space.name}</h3>
-                      
-                      <div className="flex items-center text-sm text-gray-500 mb-2">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {space.location}
-                        <Users className="h-4 w-4 ml-4 mr-1" />
-                        {space.capacity}
-                      </div>
-                      
-                      <p className="text-sm text-gray-600 mb-4">{space.description}</p>
-                      
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {space.amenities.slice(0, 3).map((amenity, index) => (
-                          <Badge key={index} variant="outline" className="bg-blue-50 text-primary border-blue-200">
-                            {amenity}
-                          </Badge>
-                        ))}
-                        {space.amenities.length > 3 && (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
-                            +{space.amenities.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-primary font-bold">{space.price}</span>
-                        <Button disabled={space.availability === "Fully Booked"}>
-                          Book Now
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold">
+                  {selectedTab === "offerings" ? "Skills Being Offered" : "Skills Being Sought"}
+                </h2>
+                <p className="text-gray-600">
+                  Browse listings where people are {selectedTab === "offerings" ? "offering" : "seeking"} skills in {selectedCategory === "All Categories" ? "all categories" : selectedCategory}
+                </p>
               </div>
               
-              {filteredSpaces.length === 0 && (
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+              ) : isError ? (
                 <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-                  <h3 className="text-xl font-semibold text-gray-900">No study spaces found</h3>
-                  <p className="text-gray-600 mt-2">Try adjusting your search or filters</p>
+                  <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <MessageSquare className="h-8 w-8 text-red-500" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-1">Error loading listings</h3>
+                  <p className="text-gray-500 max-w-md mx-auto">
+                    There was a problem loading the skill exchange listings. Please try refreshing the page.
+                  </p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/skill-listings'] })}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {filteredListings.map((listing) => (
+                    <Card key={listing.id} className="overflow-hidden hover:shadow-md transition">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row gap-6">
+                          <div className="md:w-1/4">
+                            <div className="flex flex-col items-center text-center">
+                              <Avatar className="h-20 w-20">
+                                <AvatarImage src={listing.user?.avatar || undefined} alt={listing.user?.name || 'User'} />
+                                <AvatarFallback>{listing.user?.name?.[0] || 'U'}</AvatarFallback>
+                              </Avatar>
+                              <h3 className="mt-2 font-semibold">{listing.user?.name || 'Anonymous User'}</h3>
+                              <div className="flex items-center mt-1">
+                                <span className="text-yellow-500">★</span>
+                                <span className="ml-1 text-sm text-gray-600">
+                                  {(listing.user?.rating || 0) / 10} ({listing.user?.reviewCount || 0} reviews)
+                                </span>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-3"
+                                onClick={() => handleOpenMessageSheet(listing)}
+                                disabled={listing.userId === currentUser.id}
+                              >
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                {listing.userId === currentUser.id ? 'Your Listing' : 'Message'}
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <div className="md:w-3/4">
+                            <div className="space-y-4">
+                              <div>
+                                <h3 className="font-medium text-lg">{listing.description}</h3>
+                                <p className="text-sm text-gray-500 mt-1">Posted {listing.createdAtFormatted}</p>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-500">Offering</h4>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {listing.offering.map((skill, index) => (
+                                      <Badge key={index} variant="secondary">{skill}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-500">Seeking</h4>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {listing.seeking.map((skill, index) => (
+                                      <Badge key={index} variant="outline">{skill}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600">
+                                <div>
+                                  <span className="font-medium">Time Commitment:</span> {listing.timeCommitment}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Experience Level:</span> {listing.experienceLevel}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {filteredListings.length === 0 && (
+                    <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                      <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <Search className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">No listings found</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        We couldn't find any skill exchange listings matching your filters. Try adjusting your search or create your own listing.
+                      </p>
+                      <Button className="mt-4" onClick={() => setCreateDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create a Listing
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -426,180 +688,75 @@ export default function StudySpaces() {
         </div>
       </div>
       
-      <div className="bg-gray-100 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Do you have a space to share?</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto mb-6">
-              List your space on SkillSpace and earn money by renting it out to students and learners.
-            </p>
-            <Dialog open={hostDialogOpen} onOpenChange={setHostDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="lg">Become a Host</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                {!showSuccess ? (
-                  <>
-                    <DialogHeader>
-                      <DialogTitle>List your study space</DialogTitle>
-                      <DialogDescription>
-                        Fill in the details about your space. We'll review your submission and contact you soon.
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input 
-                          id="name" 
-                          value={hostName}
-                          onChange={(e) => setHostName(e.target.value)}
-                          placeholder="Your name"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input 
-                          id="email" 
-                          type="email"
-                          value={hostEmail}
-                          onChange={(e) => setHostEmail(e.target.value)}
-                          placeholder="Your email address"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input 
-                          id="phone" 
-                          value={hostPhone}
-                          onChange={(e) => setHostPhone(e.target.value)}
-                          placeholder="Your phone number"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Space Location</Label>
-                        <Select value={hostLocation} onValueChange={setHostLocation}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {locations.slice(1).map((location) => (
-                              <SelectItem key={location} value={location}>
-                                {location}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="type">Space Type</Label>
-                        <Select value={hostSpaceType} onValueChange={setHostSpaceType}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="library">Library</SelectItem>
-                            <SelectItem value="cafe">Café</SelectItem>
-                            <SelectItem value="coworking">Co-working Space</SelectItem>
-                            <SelectItem value="classroom">Classroom</SelectItem>
-                            <SelectItem value="conference">Conference Room</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="capacity">Capacity</Label>
-                        <Input 
-                          id="capacity" 
-                          value={hostCapacity}
-                          onChange={(e) => setHostCapacity(e.target.value)}
-                          placeholder="Number of people (e.g., 20)"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="price">Price per Hour (₹)</Label>
-                        <Input 
-                          id="price" 
-                          value={hostPrice}
-                          onChange={(e) => setHostPrice(e.target.value)}
-                          placeholder="Amount in Rupees"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 space-y-2">
-                        <Label htmlFor="description">Space Description</Label>
-                        <Textarea 
-                          id="description" 
-                          value={hostDescription}
-                          onChange={(e) => setHostDescription(e.target.value)}
-                          placeholder="Describe your space in detail"
-                          rows={4}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 space-y-2">
-                        <Label>Amenities Available</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                          {amenities.map((amenity) => (
-                            <Button 
-                              key={amenity}
-                              type="button"
-                              variant={hostAmenities.includes(amenity) ? "default" : "outline"} 
-                              size="sm"
-                              className="justify-start"
-                              onClick={() => toggleHostAmenity(amenity)}
-                            >
-                              {amenity === "Wi-Fi" && <Wifi className="mr-2 h-4 w-4" />}
-                              {amenity === "Coffee Shop" && <Coffee className="mr-2 h-4 w-4" />}
-                              {amenity === "Computers" && <Monitor className="mr-2 h-4 w-4" />}
-                              {!["Wi-Fi", "Coffee Shop", "Computers"].includes(amenity) && 
-                                <div className="w-4 h-4 mr-2" />}
-                              {amenity}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <DialogFooter>
-                      <Button
-                        type="submit"
-                        onClick={handleHostSubmit}
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Submitting...
-                          </>
-                        ) : (
-                          "Submit Application"
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                      <Check className="h-6 w-6 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
-                    <p className="text-gray-600 mb-6">
-                      Thank you for your interest in hosting a study space. Our team will review your application and contact you shortly.
-                    </p>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </div>
+      {/* Message sheet */}
+      <Sheet open={messageSheetOpen} onOpenChange={setMessageSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Message {selectedListing?.user?.name}</SheetTitle>
+            <SheetDescription>
+              Discuss potential skill exchange details with {selectedListing?.user?.name}.
+            </SheetDescription>
+          </SheetHeader>
+          
+          {showVideoCall ? (
+            <div className="mt-4">
+              <VideoCall
+                userId={currentUser.id}
+                remoteUserId={selectedListing?.userId || 0}
+                isInitiator={isCallInitiator}
+                onEnd={() => setShowVideoCall(false)}
+                userName={currentUser.name}
+                remoteUserName={selectedListing?.user?.name || "Peer"}
+              />
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col space-y-4 h-[calc(100vh-200px)]">
+              <div className="flex justify-end mb-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs" 
+                  onClick={() => {
+                    setIsCallInitiator(true);
+                    setShowVideoCall(true);
+                  }}
+                >
+                  <Video className="h-3 w-3 mr-1" />
+                  Start Video Call
+                </Button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-gray-50 rounded-md">
+                <div className="bg-white p-3 rounded-lg shadow-sm max-w-[80%]">
+                  <p className="text-sm">
+                    Hi! I'm interested in your skill exchange listing. Let's discuss how we can help each other.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Just now</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Textarea 
+                  placeholder="Type your message..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleSendMessage}
+                  disabled={sendMessageMutation.isPending || !messageText.trim()}
+                >
+                  {sendMessageMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Send"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
       
       <Footer />
     </div>

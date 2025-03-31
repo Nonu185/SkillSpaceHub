@@ -210,25 +210,25 @@ export default function About() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                name: "Divyansh Rai",
+                name: "Raj Mehta",
                 role: "CEO & Co-founder",
                 bio: "Former EdTech executive with a passion for democratizing education.",
                 image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80"
               },
               {
-                name: "Dineeth BS",
+                name: "Priya Singh",
                 role: "CTO & Co-founder",
                 bio: "Tech veteran with experience building scalable learning platforms.",
                 image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=688&q=80"
               },
               {
-                name: "Fidha Mk",
+                name: "Arjun Kapoor",
                 role: "Chief Product Officer",
                 bio: "Former educator focused on creating intuitive learning experiences.",
                 image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=687&q=80"
               },
               {
-                name: "Divya Shree K",
+                name: "Neha Gupta",
                 role: "Chief Learning Officer",
                 bio: "Education researcher specializing in adult learning methodologies.",
                 image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=761&q=80"
