@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "--omit=optional && vite build --emptyOutDir",
+    "build": "vite build",
     "preview": "vite preview",
     "check": "tsc"
   },
