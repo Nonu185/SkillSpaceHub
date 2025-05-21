@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production",
-  "preview": "vite preview",
-  "check": "tsc"
+    "preview": "vite preview",
+    "check": "tsc"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
