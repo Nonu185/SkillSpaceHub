@@ -54,7 +54,7 @@ const studySpaces = [
     description: "Modern co-working space ideal for group projects and collaborative learning.",
     image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?ixlib=rb-1.2.1&auto=format&fit=crop&w=1169&q=80",
     location: "Indiranagar",
-    price: "₹250/hour",
+    price: "₹150/hour",
     capacity: "30 people",
     amenities: ["Wi-Fi", "Power Outlets", "Coffee Shop", "Whiteboards", "Projector"],
     availability: "Limited Seats",

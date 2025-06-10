@@ -74,7 +74,7 @@ const extendedMentors: Mentor[] = allMentors.map((mentor, index) => ({
   availability: index % 2 === 0 ? "Available" : "Fully Booked",
   rating: (4 + (index % 10) / 10).toFixed(1),
   reviews: 10 + (index * 5),
-  hourlyRate: "₹" + (1500 + (index * 200)),
+  hourlyRate: "₹" + (500 + (index * 200)),
 }));
 
 // Create a complete list of all specializations for filtering
